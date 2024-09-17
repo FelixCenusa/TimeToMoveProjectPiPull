@@ -28,7 +28,6 @@ CREATE TABLE Users (
     Username VARCHAR(255) NOT NULL,
     UserPFP VARCHAR(255), -- Path to user profile picture
     UserDescription VARCHAR(255),-- user description, maximum 20 words
-    IsPublic BOOLEAN DEFAULT FALSE, -- Public profile flag
     Email VARCHAR(255) UNIQUE, -- Ensure unique emails
     PasswordHash VARCHAR(255), -- Salted and hashed password
     Salt VARCHAR(255),
