@@ -1,0 +1,38 @@
+<%- include('./../partials/header.ejs') %>
+
+<h1>Hi Welcome to the TimeToMove helper!</h1>
+
+
+
+<hr>
+
+<!-- Display all currently registered users in a table -->
+<h2>Registered Users</h2>
+<% console.log(user) %>
+<% console.log("FROMALLUSFROMALLUSERSusersFROMALLUSERSusersFROMALLUSERSusersFROMALLUSERSusersFROMALLUSERSusersERSusers") %>
+<% console.log(res.user) %>
+<% console.log("FROMALLUSERSusersFROMALLUSERSusersFROMALLUSERSusersFROMALLUSERSusersFROMALLUSERSusersFROMALLUSERSusers") %>
+<% if (user && user.length > 0) { %>
+    <table border="1" cellpadding="10" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Public Profile</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% users.forEach(function(user) { %>
+                <tr>
+                    <td><%= user.Username %></td>
+                    <td><%= user.Email %></td>
+                    <td><%= user.IsPublic ? 'Yes' : 'No' %></td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
+<% } else { %>
+    <p>No users registered yet.</p>
+<% } %>
+
+<%- include('./../partials/footer.ejs') %>

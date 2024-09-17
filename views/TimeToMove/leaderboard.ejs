@@ -1,0 +1,167 @@
+<%- include('./../partials/header.ejs') %>
+
+<h1>Leaderboard</h1>
+
+<!-- Button to show the stats -->
+<button id="view-stats-button" class="btn-stats">View Total Project Stats</button>
+
+<!-- Leaderboard stats, hidden by default -->
+<div id="leaderboard-stats" class="leaderboard-stats" style="display: none;">
+    <p><strong>Total Users:</strong> <%= totalUsers %></p>
+    <p><strong>Total Files Uploaded:</strong> <%= totalFilesUploaded %></p>
+
+    <p><strong>Total Media Size:</strong> 
+    <% if (totalMediaSize > 1024 * 1024 * 1024) { %>
+        <%= (totalMediaSize / (1024 * 1024 * 1024)).toFixed(2) %> GB
+    <% } else { %>
+        <%= (totalMediaSize / (1024 * 1024)).toFixed(2) %> MB
+    <% } %>
+    <i> /64GB</i>
+    </p>
+    <p>- - - - - - - - - -</p>
+    <p><strong>Average Files per User:</strong><%= (totalFilesUploaded / totalUsers).toFixed(2) %></p>
+    <p><strong>Average Media Size per User:</strong> <%= ((totalMediaSize / (1024 * 1024)).toFixed(2) / totalUsers).toFixed(2) %></p>
+    <p><strong>Average Files per MB:</strong> <%= (totalFilesUploaded / (totalMediaSize / (1024 * 1024))).toFixed(2) %></p>
+</div>
+
+<script>
+    // JavaScript to toggle the display of the stats
+    document.getElementById("view-stats-button").addEventListener("click", function() {
+        const stats = document.getElementById("leaderboard-stats");
+        if (stats.style.display === "none") {
+            stats.style.display = "block";  // Show the stats
+            this.innerText = "Hide Total Project Stats";  // Change button text
+        } else {
+            stats.style.display = "none";  // Hide the stats
+            this.innerText = "View Total Project Stats";  // Reset button text
+        }
+    });
+</script>
+
+<table id="leaderboard-table">
+    <thead>
+        <tr>
+            <th onclick="sortTable(0)">Files per MB  <strong>↑ ↓</strong></th>
+            <th onclick="sortTable(1)">User  <strong>↑ ↓</strong></th> <!-- Combined column for User -->
+            <th onclick="sortTable(2)">Total Files Uploaded  <strong>↑ ↓</strong></th>
+            <th onclick="sortTable(3)">Total Media Size (MB)  <strong>↑ ↓</strong></th>
+        </tr>
+    </thead>
+    <tbody>
+        <% if (Array.isArray(leaderboard) && leaderboard.length > 0) { %>
+            <% leaderboard.forEach(function(player) { %>
+                <tr>
+                    <td><%= player.FilesPerMB ? player.FilesPerMB.toFixed(2) : 'N/A' %></td>
+                    
+                    <!-- Combined User column -->
+                    <td class="user-cell">
+                        <a href="/<%= player.Username %>" class="user-link">
+                            <img 
+                                src="/uploads/profiles/<%= player.UserPFP ? player.UserPFP : 'user-circle.svg' %>" 
+                                alt="<%= player.Username %>'s Profile Picture" 
+                                class="profile-picture"
+                                onerror="this.onerror=null; this.src='/uploads/profiles/user-circle.svg';"
+                            >
+                            <span class="username"><%= player.Username %></span>
+                        </a>
+                    </td>
+                    
+                    <td><%= player.TotalFilesUploaded %></td>
+                    <td><%= (player.TotalMediaSize / (1024 * 1024)).toFixed(2) %> MB</td>
+                </tr>
+            <% }); %>
+        <% } else { %>
+            <tr>
+                <td colspan="4">No data available</td>
+            </tr>
+        <% } %>
+    </tbody>
+</table>
+
+<%- include('./../partials/footer.ejs') %>
+
+<script>
+function sortTable(n) {
+    const table = document.getElementById("leaderboard-table");
+    let switching = true;
+    let shouldSwitch, i, x, y, xContent, yContent;
+    let dir = "asc"; 
+    let switchCount = 0;
+
+    while (switching) {
+        switching = false;
+        const rows = table.rows;
+
+        for (i = 1; i < rows.length - 1; i++) {
+            shouldSwitch = false;
+            x = rows[i].getElementsByTagName("TD")[n];
+            y = rows[i + 1].getElementsByTagName("TD")[n];
+
+            xContent = parseFloat(x.innerHTML) || x.innerHTML.toLowerCase();
+            yContent = parseFloat(y.innerHTML) || y.innerHTML.toLowerCase();
+
+            if (dir === "asc") {
+                if (xContent > yContent) {
+                    shouldSwitch = true;
+                    break;
+                }
+            } else if (dir === "desc") {
+                if (xContent < yContent) {
+                    shouldSwitch = true;
+                    break;
+                }
+            }
+        }
+
+        if (shouldSwitch) {
+            rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+            switching = true;
+            switchCount++;
+        } else {
+            if (switchCount === 0 && dir === "asc") {
+                dir = "desc";
+                switching = true;
+            }
+        }
+    }
+}
+</script>
+
+<style>
+/* Ensure profile pictures are displayed at a consistent small size */
+.profile-picture {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* Style for the clickable username link */
+.username-link {
+    text-decoration: none;
+    color: #000; /* Set a color for the link */
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+.username-link:hover {
+    text-decoration: underline; /* Add underline on hover */
+}
+/* Add hover effect for table headers */
+th {
+    cursor: pointer;
+    background-color: #58c2ff; /* Background color */
+    padding: 10px;
+    transition: background-color 0.3s ease;
+}
+
+th:hover {
+    background-color: #03a3ff; /* Hover effect: change background color */
+    color: #007bff; /* Optional: change text color */
+}
+
+/* Add hover effect for table rows */
+tbody tr:hover {
+    background-color: #b4ffc1; /* Hover effect for rows */
+}
+</style>
