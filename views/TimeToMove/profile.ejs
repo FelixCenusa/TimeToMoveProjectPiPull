@@ -1,14 +1,51 @@
 <%- include('./../partials/header.ejs') %>
 
+<!-- Display Profile Picture -->
+<div class="profile-picture-container">
+    <% if (user.UserPFP) { %>
+        <img 
+            src="/uploads/profiles/<%= user.UserPFP %>" 
+            alt="<%= user.Username %>'s Profile Picture" 
+            class="profile-picture"
+            <% if (session.user && session.user.username === user.Username) { %>
+                onclick="triggerProfilePicUpload()"
+            <% } %>
+            onerror="this.onerror=null; this.src='/uploads/profiles/user-circle.svg';"
+        >
+        
+            <% } else { %>
+        <img 
+            src="/uploads/profiles/user-circle.svg" 
+            alt="Default Profile Picture" 
+            class="profile-picture"
+            <% if (session.user && session.user.username === user.Username) { %>
+                onclick="triggerProfilePicUpload()"
+            <% } %>
+        >
+    <% } %>
+</div>
+
+<% if (session.user && session.user.username === user.Username) { %>
+            <!-- Add Delete Profile Picture button -->
+            <button class="delete-profile-pic-btn" onclick="deleteProfilePicture()">Delete Profile Picture</button>
+            <!-- Hidden form for uploading profile picture style="cursor: pointer;"-->
+            <form id="profilePicForm" action="/<%= user.Username %>/uploadProfilePic" method="POST" enctype="multipart/form-data" style="display: none;">
+                <input type="file" id="profilePicInput" name="profilePic" accept="image/*" onchange="submitProfilePicForm()">
+            </form>
+            <% } %>
+
 <% if (session.user && session.user.username === user.Username) { %>
     <!-- Show welcome message if it's the logged-in user's profile -->
     <h1>Welcome to your profile, <%= user.Username %>!</h1>
+    
+    
 
+    
     <!-- Display the form to create a new box if it's the user's own profile -->
     <h2>Create a New Box</h2>
     <form action="/create_box" method="POST" class="create-box-form">
         <div class="form-group">
-            <label for="label">Box Label:</label>
+            <label for="label">Box Title:</label>
             <input type="text" id="label" name="label" required>
         </div>
         <div class="form-group">
@@ -69,24 +106,33 @@
                     <a href="/<%= user.Username %>/<%= box.TitleChosen %>">
                         <%= box.TitleChosen %>
                     </a>
-
-                    <!-- Edit button (only for the profile owner) -->
-                    <% if (session.user && session.user.username === user.Username) { %>
-                        <p><strong>Description:</strong> <%= box.BoxDescription ? box.BoxDescription : 'No description provided.' %></p>
-                        <button class="edit-btn" onclick="openEditBoxModal(<%= box.BoxID %>, '<%= box.TitleChosen %>', '<%= box.BoxDescription %>')">Edit</button>
-                        
-                        <!-- Delete button (only for the profile owner) -->
-                        <button class="delete-btn" onclick="openDeleteBoxModal(<%= box.BoxID %>, '<%= box.TitleChosen %>')">Delete</button>
-                    <% } %>
                 </h3>
+
+                <!-- Edit and Delete buttons (only for the profile owner) -->
+                <% if (session.user && session.user.username === user.Username) { %>
+                    <button class="edit-btn" onclick="openEditBoxModal(<%= box.BoxID %>, '<%= box.TitleChosen %>', '<%= box.BoxDescription %>')">Edit</button>
+                    <button class="delete-btn" onclick="openDeleteBoxModal(<%= box.BoxID %>, '<%= box.TitleChosen %>')">Delete</button>
+                <% } %>
+
+                <p><strong>Description:</strong> <%= box.BoxDescription ? box.BoxDescription : 'No description provided.' %></p>
                 <p><strong>Is Public:</strong> <%= box.IsBoxPublic ? 'Yes' : 'No' %></p>
                 <p><strong>Number of Files:</strong> <%= box.NrOfFiles %></p>
+
+                <!-- Display QR code for public boxes -->
+                <% if (box.IsBoxPublic && box.qrCodeDataURL) { %>
+                    <div class="qr-code-container">
+                        <h4>Share this Box:</h4>
+                        <img src="<%= box.qrCodeDataURL %>" alt="QR Code for <%= box.TitleChosen %>">
+                    </div>
+                <% } %>
             </div>
         <% }); %>
     <% } else { %>
         <p>No boxes found.</p>
     <% } %>
 </div>
+
+
 
 <!-- Edit Box Modal -->
 <div id="editBoxModal" class="modal">
@@ -124,8 +170,6 @@
 <%- include('./../partials/footer.ejs') %>
 
 <script>
-// Function to open the edit modal
-
 // Function to open the edit modal
 function openEditBoxModal(boxID, currentBoxName, currentBoxDescription) {
     document.getElementById('newBoxName').value = currentBoxName;
@@ -257,9 +301,61 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+function triggerProfilePicUpload() {
+    document.getElementById('profilePicInput').click();
+}
+
+function submitProfilePicForm() {
+    const fileInput = document.getElementById('profilePicInput');
+    const file = fileInput.files[0];
+
+    if (file) {
+        // Optional: Validate file size (e.g., max 5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (file.size > maxSize) {
+            alert('File size exceeds the maximum limit of 5MB.');
+            fileInput.value = ''; // Reset the input
+            return;
+        }
+
+        // Optional: Validate file type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+        if (!allowedTypes.includes(file.type)) {
+            alert('Invalid file type. Only JPG, PNG, and GIF are allowed.');
+            fileInput.value = ''; // Reset the input
+            return;
+        }
+
+        // Submit the form
+        document.getElementById('profilePicForm').submit();
+    }
+}
+
+function deleteProfilePicture() {
+    if (confirm('Are you sure you want to delete your profile picture?')) {
+        // Redirect to the route that handles profile picture deletion
+        window.location.href = '/<%= user.Username %>/deleteProfilePic';
+    }
+}
+
+
 </script>
 
 <style>
+.delete-profile-pic-btn {
+    margin-top: 10px;
+    background-color: #dc3545; /* Red color */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    padding: 8px 15px;
+    font-size: 14px;
+}
+
+.delete-profile-pic-btn:hover {
+    background-color: #c82333;
+}
 /* Style for the edit and delete buttons */
 .edit-btn, .delete-btn {
     margin-left: 10px;
@@ -387,6 +483,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
 #boxCharCount {
     font-weight: bold;
+}
+
+/* Profile Picture Styles */
+.profile-picture-container {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.profile-picture {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%; /* Makes the image circular */
+    object-fit: cover; /* Ensures the image covers the container without stretching */
+    border: 2px solid #ddd;
+}
+
+.profile-picture:hover {
+    opacity: 0.8;
+    cursor: pointer;
+}
+
+/* QR Code Styles */
+.qr-code-container {
+    text-align: center;
+    margin-top: 10px;
+}
+
+.qr-code-container img {
+    width: 150px;
+    height: 150px;
 }
 
 

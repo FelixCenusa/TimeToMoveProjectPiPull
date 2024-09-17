@@ -887,7 +887,28 @@ async function updateBox(boxID, newBoxName, newBoxDescription) {
 }
 
 
+// Function to update user's profile picture
+async function updateUserProfilePic(username, filename) {
+    const db = await mysql.createConnection(config);
 
+    try {
+        const sql = 'UPDATE Users SET UserPFP = ? WHERE Username = ?';
+        const result = await db.query(sql, [filename, username]);
+
+        if (result.affectedRows > 0) {
+            console.log(`Profile picture updated for user: ${username}`);
+            return { success: true };
+        } else {
+            console.error('User not found or profile picture not updated.');
+            return { success: false, message: 'User not found or profile picture not updated.' };
+        }
+    } catch (error) {
+        console.error('Error updating user profile picture:', error);
+        throw error;
+    } finally {
+        await db.end();
+    }
+}
 
 async function insertFakeData() {
     const db = await mysql.createConnection(config);
@@ -983,6 +1004,7 @@ module.exports = {
     fakeVerify,
     updateUserDescription,
     updateBox,
+    updateUserProfilePic,
     "createBox": createBox,
     "addToBox": addToBox,
     "getBoxMedia": getBoxMedia,

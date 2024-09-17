@@ -6,6 +6,7 @@ const path = require('path');
 const router = express.Router();
 const fs = require('fs');
 const archiver = require('archiver');
+const QRCode = require('qrcode'); // Add this line
 
 router.get("/create_user", (req, res) => {
     return res.render('TimeToMove/register.ejs',{ session: req.session })
@@ -276,39 +277,46 @@ router.get("/welcome", (req, res) => {
 });
 
 
+// Update the route handler for '/:username'
 router.get('/:username', async (req, res) => {
     const { username } = req.params;
-    console.log("username", username);
-    console.log("req.session", req.session);
-    console.log("req.session.user", req.session.user); // undefined
+    const session = req.session;
 
     try {
         // Fetch the user by username
         const user = await TimeToMove.getUserByUsername(username);
-        console.log('user:', user);  // Log the user object
 
         if (!user) {
-            console.log('User not found:', username);  // Add log for debugging
+            console.log('User not found:', username);
             return res.status(404).send('User not found');
         }
 
         // Fetch the boxes created by the user
         const userBoxes = await TimeToMove.getUserBoxes(user.ID);
-        console.log('userBoxes:', userBoxes);  // Log the user boxes
-        console.log("user.username", user.Username); // felix
-        console.log("req.session.user", req.session.user); // undefined
-        //console.log("req.session.user.username", req.session.user.username); // error
-        console.log("req.paramsUsername", req.params.username);
-        console.log("the end");
 
+        // Generate QR codes for public boxes
+        for (const box of userBoxes) {
+            if (box.IsBoxPublic) {
+                // Generate the box URL
+                const boxURL = `${req.protocol}://${req.get('host')}/${username}/${box.TitleChosen}`;
 
-        console.log("user.ID", user.ID);
+                // Generate the QR code data URL
+                const qrCodeDataURL = await QRCode.toDataURL(boxURL);
+
+                // Add the qrCodeDataURL to the box object
+                box.qrCodeDataURL = qrCodeDataURL;
+            } else {
+                // Box is not public, do not generate QR code
+                box.qrCodeDataURL = null;
+            }
+        }
+
         // Render the user's profile page
         res.render('TimeToMove/profile.ejs', {
             user,
             boxes: userBoxes,
-            isOwner: req.session.user && req.session.user.username === user.Username,
-            session: req.session
+            isOwner: session.user && session.user.username === user.Username,
+            session: session
         });
     } catch (error) {
         console.error('Error loading user profile:', error);
@@ -344,6 +352,38 @@ router.post('/:username/editDescription', async (req, res) => {
     } catch (error) {
         console.error('Error updating description:', error);
         return res.status(500).send('Server error');
+    }
+});
+
+router.get('/:username/deleteProfilePic', async function (req, res) {
+    const username = req.params.username;
+
+    // Ensure the user is logged in and is the owner of the profile
+    if (!req.session.user || req.session.user.username !== username) {
+        return res.status(403).send('Unauthorized');
+    }
+
+    try {
+        // Delete the profile picture file from the server
+        const user = await TimeToMove.getUserByUsername(username);
+        if (user && user.UserPFP) {
+            const profilePicPath = path.join(__dirname, '..', 'uploads', 'profiles', user.UserPFP);
+            // Delete the file if it exists
+            fs.unlink(profilePicPath, (err) => {
+                if (err && err.code !== 'ENOENT') {
+                    console.error('Error deleting profile picture file:', err);
+                }
+            });
+
+            // Update the user's profile picture path in the database
+            await TimeToMove.updateUserProfilePic(username, null);
+        }
+
+        // Redirect back to the user's profile
+        res.redirect('/' + username);
+    } catch (error) {
+        console.error('Error deleting profile picture:', error);
+        res.status(500).send('Server error');
     }
 });
 
@@ -763,6 +803,66 @@ router.post('/:username/:boxName/:mediaID/delete', async (req, res) => {
         console.error('Error deleting file:', err);
         res.status(500).send('Error deleting file.');
     }
+});
+
+
+// Configure multer for profile picture uploads
+const profilePicStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadPath = path.join(__dirname, '..', 'uploads', 'profiles');
+        cb(null, uploadPath);
+    },
+    filename: function (req, file, cb) {
+        const username = req.params.username;
+        const ext = path.extname(file.originalname);
+        const filename = username + '_profile' + ext;
+        cb(null, filename);
+    }
+});
+
+const uploadProfilePic = multer({
+    storage: profilePicStorage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
+    fileFilter: function (req, file, cb) {
+        const allowedTypes = /jpeg|jpg|png|gif/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
+
+        if (mimetype && extname) {
+            return cb(null, true);
+        } else {
+            cb(new Error('Invalid file type. Only JPG, PNG, and GIF are allowed.'));
+        }
+    }
+}).single('profilePic');
+
+// Route to handle profile picture upload
+router.post('/:username/uploadProfilePic', function (req, res) {
+    const username = req.params.username;
+
+    // Ensure the user is logged in and is the owner of the profile
+    if (!req.session.user || req.session.user.username !== username) {
+        return res.status(403).send('Unauthorized');
+    }
+
+    uploadProfilePic(req, res, async function (err) {
+        if (err) {
+            console.error('Error uploading profile picture:', err);
+            return res.status(400).send(err.message);
+        }
+
+        // Update the user's profile picture path in the database
+        try {
+            const filename = req.file.filename;
+            await TimeToMove.updateUserProfilePic(username, filename);
+
+            // Redirect back to the user's profile
+            res.redirect('/' + username);
+        } catch (error) {
+            console.error('Error updating profile picture in database:', error);
+            res.status(500).send('Server error');
+        }
+    });
 });
 
 

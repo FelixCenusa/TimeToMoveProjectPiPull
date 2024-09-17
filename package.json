@@ -25,6 +25,7 @@
     "nodemailer": "^6.9.15",
     "path": "^0.12.7",
     "promise-mysql": "^5.2.0",
+    "qrcode": "^1.5.4",
     "random": "^5.1.0",
     "readline-promise": "^1.0.5"
   }
