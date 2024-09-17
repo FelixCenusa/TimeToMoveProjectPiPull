@@ -25,6 +25,28 @@
     <h1>Welcome to <%= user.Username %>'s Profile</h1>
 <% } %>
 
+<!-- Display the user's description -->
+<div class="user-description">
+    <h3>About <%= user.Username %>:</h3>
+    <p id="description-text"><%= user.UserDescription ? user.UserDescription : 'This user has not added a description yet.' %></p>
+
+    <% if (session.user && session.user.username === user.Username) { %>
+        <!-- Edit button next to the description -->
+        <button class="edit-btn" onclick="toggleEditDescription()">Edit</button>
+    <% } %>
+
+    <!-- Hidden form to edit the description, initially hidden -->
+<div id="edit-description-form" style="display: none;">
+    <form action="/<%= user.Username %>/editDescription" method="POST">
+        <textarea name="UserDescription" id="UserDescription" rows="3" placeholder="Enter your description (max 4095 characters)" required maxlength="4095"><%= user.UserDescription || '' %></textarea>
+        <div id="charCountWrapper">
+            <span id="charCount">0</span>/4095 characters
+        </div>
+        <button type="submit" class="btn-submit">Update Description</button>
+        <button type="button" class="btn-cancel" onclick="toggleEditDescription()">Cancel</button>
+    </form>
+</div>
+
 <!-- Display different content based on whether the user is logged in or not -->
 <% if (session.user) { %>
     <p>You are logged in as <%= session.user.username %></p>
@@ -50,7 +72,8 @@
 
                     <!-- Edit button (only for the profile owner) -->
                     <% if (session.user && session.user.username === user.Username) { %>
-                        <button class="edit-btn" onclick="openEditBoxModal(<%= box.BoxID %>, '<%= box.TitleChosen %>')">Edit</button>
+                        <p><strong>Description:</strong> <%= box.BoxDescription ? box.BoxDescription : 'No description provided.' %></p>
+                        <button class="edit-btn" onclick="openEditBoxModal(<%= box.BoxID %>, '<%= box.TitleChosen %>', '<%= box.BoxDescription %>')">Edit</button>
                         
                         <!-- Delete button (only for the profile owner) -->
                         <button class="delete-btn" onclick="openDeleteBoxModal(<%= box.BoxID %>, '<%= box.TitleChosen %>')">Delete</button>
@@ -65,17 +88,26 @@
     <% } %>
 </div>
 
-<!-- Edit Box Name Modal -->
+<!-- Edit Box Modal -->
 <div id="editBoxModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeEditBoxModal()">&times;</span>
-        <h2>Edit Box Name</h2>
+        <h2>Edit Box</h2>
         <form id="editBoxForm" method="POST" action="">
+            <label for="newBoxName">Box Name:</label>
             <input type="text" id="newBoxName" name="newBoxName" placeholder="Enter new box name" required>
+            
+            <label for="newBoxDescription">Box Description:</label>
+            <textarea id="newBoxDescription" name="newBoxDescription" placeholder="Enter box description (max 4095 characters)" maxlength="4095"></textarea>
+            <div id="boxCharCountWrapper">
+                <span id="boxCharCount">0</span>/4095 characters
+            </div>
+            
             <button type="submit">Update</button>
         </form>
     </div>
 </div>
+
 
 <!-- Delete Box Confirmation Modal -->
 <div id="deleteBoxModal" class="modal">
@@ -93,11 +125,56 @@
 
 <script>
 // Function to open the edit modal
-function openEditBoxModal(boxID, currentBoxName) {
+
+// Function to open the edit modal
+function openEditBoxModal(boxID, currentBoxName, currentBoxDescription) {
     document.getElementById('newBoxName').value = currentBoxName;
-    document.getElementById('editBoxForm').action = '/' + '<%= user.Username %>' + '/' + boxID + '/rename';
+    document.getElementById('newBoxDescription').value = currentBoxDescription || ''; // Set to empty string if null
+    document.getElementById('editBoxForm').action = '/' + '<%= user.Username %>' + '/' + boxID + '/editBox';
     document.getElementById('editBoxModal').style.display = 'block';
+
+    // Initialize character count
+    updateBoxCharCount();
+
+    // Add event listener for input on box description
+    const textarea = document.getElementById('newBoxDescription');
+    textarea.addEventListener('input', updateBoxCharCount);
 }
+
+// Function to update character count for box description
+function updateBoxCharCount() {
+    const textarea = document.getElementById('newBoxDescription');
+    const charCount = document.getElementById('boxCharCount');
+    const maxChars = 4095;
+
+    // Update the character count display
+    const currentLength = textarea.value.length;
+    charCount.textContent = currentLength;
+
+    // Change the color based on how close to the limit the user is
+    if (currentLength > maxChars) {
+        charCount.style.color = 'red';
+    } else if (currentLength >= maxChars * 0.8) { // 80% of max limit
+        charCount.style.color = 'orange';
+    } else {
+        charCount.style.color = 'green';
+    }
+}
+
+// Add event listener to prevent form submission if character limit exceeded
+document.addEventListener('DOMContentLoaded', function() {
+    const editBoxForm = document.getElementById('editBoxForm');
+    if (editBoxForm) {
+        editBoxForm.addEventListener('submit', function(e) {
+            const textarea = document.getElementById('newBoxDescription');
+            const maxChars = 4095;
+            if (textarea.value.length > maxChars) {
+                e.preventDefault(); // Prevent form submission
+                alert('Box description exceeds the maximum allowed characters.');
+            }
+        });
+    }
+});
 
 // Function to close the edit modal
 function closeEditBoxModal() {
@@ -115,6 +192,71 @@ function openDeleteBoxModal(boxID, boxName) {
 function closeDeleteBoxModal() {
     document.getElementById('deleteBoxModal').style.display = 'none';
 }
+
+document.querySelector('#edit-description-form form').addEventListener('submit', function(e) {
+    const textarea = document.getElementById('UserDescription');
+    const maxChars = 4095;
+    if (textarea.value.length > maxChars) {
+        e.preventDefault(); // Prevent form submission
+        alert('Description exceeds the maximum allowed characters.');
+    }
+});
+
+function toggleEditDescription() {
+    const descriptionText = document.getElementById('description-text');
+    const editForm = document.getElementById('edit-description-form');
+    if (editForm.style.display === 'none') {
+        editForm.style.display = 'block';
+        descriptionText.style.display = 'none';  // Hide the current description text
+    } else {
+        editForm.style.display = 'none';
+        descriptionText.style.display = 'block';  // Show the current description text again
+    }
+}
+
+function toggleEditDescription() {
+    const descriptionText = document.getElementById('description-text');
+    const editForm = document.getElementById('edit-description-form');
+    if (editForm.style.display === 'none') {
+        editForm.style.display = 'block';
+        descriptionText.style.display = 'none';  // Hide the current description text
+
+        // Initialize character count when form is shown
+        updateCharCount();
+    } else {
+        editForm.style.display = 'none';
+        descriptionText.style.display = 'block';  // Show the current description text again
+    }
+}
+
+// Function to update character count
+function updateCharCount() {
+    const textarea = document.getElementById('UserDescription');
+    const charCount = document.getElementById('charCount');
+    const maxChars = 4095;
+
+    // Update the character count display
+    const currentLength = textarea.value.length;
+    charCount.textContent = currentLength;
+
+    // Change the color based on how close to the limit the user is
+    if (currentLength > maxChars) {
+        charCount.style.color = 'red';
+    } else if (currentLength >= maxChars * 0.8) { // 80% of max limit
+        charCount.style.color = 'orange';
+    } else {
+        charCount.style.color = 'green';
+    }
+}
+
+// Add event listener to textarea when the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('UserDescription');
+    if (textarea) {
+        textarea.addEventListener('input', updateCharCount);
+    }
+});
+
 </script>
 
 <style>
@@ -179,4 +321,73 @@ function closeDeleteBoxModal() {
     border-radius: 5px;
     cursor: pointer;
 }
+
+/* Style for the edit button next to the description */
+.edit-btn {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    padding: 5px 10px;
+    font-size: 14px;
+    margin-left: 10px;
+}
+
+.edit-btn:hover {
+    background-color: #0056b3;
+}
+
+/* Form for editing the description */
+#edit-description-form textarea {
+    width: 90%;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+#edit-description-form .btn-submit, #edit-description-form .btn-cancel {
+    padding: 8px 15px;
+    border-radius: 5px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+#edit-description-form .btn-submit {
+    background-color: #28a745;
+    color: white;
+    border: none;
+}
+
+#edit-description-form .btn-cancel {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    margin-left: 10px;
+}
+
+/* Style for the character count */
+#charCountWrapper {
+    margin-top: 5px;
+    font-size: 14px;
+}
+
+#charCount {
+    font-weight: bold;
+}
+
+/* Style for the character count in edit box modal */
+#boxCharCountWrapper {
+    margin-top: 5px;
+    font-size: 14px;
+}
+
+#boxCharCount {
+    font-weight: bold;
+}
+
+
 </style>

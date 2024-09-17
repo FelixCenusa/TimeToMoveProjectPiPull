@@ -44,7 +44,7 @@ router.post('/create_fake_user', async (req, res) => {
 
         if (result.success) {
             // Redirect the user to the /verify route after email is sent
-            return res.redirect('/Fakeverify');
+            return res.redirect('/fakeVerify');
         } else {
             // Handle error (e.g., username or email already exists)
             return res.render('TimeToMove/index.ejs', { errorMessage: result.message, session: req.session });
@@ -55,13 +55,13 @@ router.post('/create_fake_user', async (req, res) => {
     }
 });
 
-router.get('/Fakeverify', (req, res) => {
+router.get('/fakeVerify', (req, res) => {
     // Render the verify page where the user will input the token
     res.render('TimeToMove/fakeVerify.ejs',{ user: req.session.user,session: req.session });  // Render a view for token input
 });
 
 // Route to handle token verification
-router.post('/Fakeverify', async (req, res) => {
+router.post('/fakeVerify', async (req, res) => {
     const { token } = req.body;
 
     try {
@@ -72,7 +72,7 @@ router.post('/Fakeverify', async (req, res) => {
             return res.redirect('/login');
         } else {
             //res.status(400).send(result.message);  // Send error message
-            return res.redirect('/register');
+            return res.redirect('/create_fake_user');
         }
     } catch (error) {
         console.error('Error during verification:', error);
@@ -110,7 +110,7 @@ router.post('/verify', async (req, res) => {
             return res.redirect('/login');
         } else {
             //res.status(400).send(result.message);  // Send error message
-            return res.redirect('/register');
+            return res.redirect('/create_user');
         }
     } catch (error) {
         console.error('Error during verification:', error);
@@ -317,6 +317,58 @@ router.get('/:username', async (req, res) => {
 });
 
 
+// Route for updating the user description
+router.post('/:username/editDescription', async (req, res) => {
+    const { username } = req.params;
+    const { UserDescription } = req.body;
+
+    try {
+        // Ensure the logged-in user is the one trying to edit their profile
+        if (req.session.user && req.session.user.username === username) {
+            // Call the function in TimeToMove.js to update the description
+            const result = await TimeToMove.updateUserDescription(username, UserDescription);
+
+            if (result.success) {
+                // Redirect back to the user's profile after updating the description
+                return res.redirect(`/${username}`);
+            } else {
+                return res.render('TimeToMove/profile', {
+                    user: req.session.user,
+                    errorMessage: 'Error updating description',
+                    session: req.session
+                });
+            }
+        } else {
+            return res.status(403).send('Unauthorized to edit this profile');
+        }
+    } catch (error) {
+        console.error('Error updating description:', error);
+        return res.status(500).send('Server error');
+    }
+});
+
+// Route to update box name and description
+router.post('/:username/:boxID/editBox', async (req, res) => {
+    const { username, boxID } = req.params;
+    const { newBoxName, newBoxDescription } = req.body;
+
+    try {
+        // Ensure the user is logged in and is the owner of the box
+        if (req.session.user && req.session.user.username === username) {
+            // Call the function to update the box
+            await TimeToMove.updateBox(boxID, newBoxName, newBoxDescription);
+
+            // Redirect back to the profile page
+            res.redirect('/' + username);
+        } else {
+            res.status(403).send('Unauthorized to edit this box.');
+        }
+    } catch (error) {
+        console.error('Error updating box:', error);
+        res.status(500).send('Server error while updating box.');
+    }
+});
+
 
 
 
@@ -356,12 +408,6 @@ if (!isNaN(boxName)) {
     boxID = await TimeToMove.getBoxID(username, boxName);  // Fetch the box by boxName
     boxID = boxID[0].BoxID;
 }
-
-
-
-
-
-
     console.log('boxID in usrname "boxname" upload:', boxID);
     if (!boxID) {
         return res.render('TimeToMove/boxContents', {

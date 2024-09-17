@@ -117,7 +117,7 @@ async function createUser(username, email, password, isPublic) {
             };
         }
 
-        // Hash password
+        // Hash password Bcrypt adds the salt automacally and stores it in the hash
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -150,7 +150,7 @@ async function verify(token) {
         // Check if the token exists in the TempUsers table
         const sql = `SELECT * FROM TempUsers WHERE VerificationToken = ?`;
         const tempUsers = await db.query(sql, [token]);
-        console.log('Query result for tempUsers:', tempUsers);  // Debugging the full result
+        console.log('Query result for tempUsers verify:', tempUsers);  // Debugging the full result
 
 
         if (tempUsers.length === 0) {
@@ -205,7 +205,14 @@ async function verify(token) {
 
 // Enhanced createUser function
 async function createFakeUser(username, email, password, isPublic) {
+    console.log("GotThisFar11")
     const db = await mysql.createConnection(config);
+    console.log("GotThisFar12")
+    const sql = `SELECT * FROM TempUsers WHERE VerificationToken = ?`;
+    console.log("GotThisFar13")
+    const token = 123
+    const tempUsers = await db.query(sql, [token]);
+    console.log('Query result for tempUsers CreateFakeUseer:', tempUsers);  // Debugging the full result
 
     try {
         // Hash password
@@ -214,12 +221,11 @@ async function createFakeUser(username, email, password, isPublic) {
 
 
         // Generate a unique verification token
-        const token = 123
 
         // Insert the user into the TempUsers table with the verification token
-        const sql = `INSERT INTO TempUsers (Username, Email, PasswordHash, IsPublic, VerificationToken)
-                     VALUES (?, ?, ?, ?, ?)`;
-        await db.query(sql, [username, email, hashedPassword, isPublic, token]);
+        const sql = `INSERT INTO Users (Username, Email, PasswordHash)
+                     VALUES (?, ?, ?)`;
+        await db.query(sql, [username, email, hashedPassword, token]);
 
 
         return { success: true, message: 'Verification token sent. Please check your email.' }
@@ -234,13 +240,11 @@ async function createFakeUser(username, email, password, isPublic) {
 
 async function fakeVerify(token) {
     const db = await mysql.createConnection(config);
-
+    // Check if the token exists in the TempUsers table
+    console.log("GotThisFar1")
+    
     try {
-        // Move the user from TempUsers to Users table  // add salt
-        const insertSql = `INSERT INTO Users (Username, Email, PasswordHash, IsPublic)
-                           VALUES (?, ?, ?, ?)`;
-        await db.query(insertSql, [tempUser.Username, tempUser.Email, tempUser.PasswordHash, tempUser.IsPublic]);
-
+        
         // Delete the user from TempUsers after verification
         await db.query(`DELETE FROM TempUsers WHERE VerificationToken = ?`, [123]);
 
@@ -277,7 +281,7 @@ async function loginUser(username, password) {
         }
 
         const user = res[0];
-
+        // salt needed?
         // Verify the password (assuming bcrypt is used)
         const passwordMatch = await bcrypt.compare(password, user.PasswordHash);
 
@@ -840,6 +844,50 @@ async function deleteBoxWithContents(boxID) {
 }
 
 
+// Function to update user description
+async function updateUserDescription(username, description) {
+    const db = await mysql.createConnection(config);  // Ensure your config is properly set
+
+    try {
+        // Ensure the description doesn't exceed the limit and handle other sanitization
+        const sanitizedDescription = description.slice(0, 4095); // Max length 4095 chars
+
+        // Update the user's description in the database
+        const result = await db.query('UPDATE Users SET UserDescription = ? WHERE Username = ?', [sanitizedDescription, username]);
+
+        if (result.affectedRows > 0) {
+            return { success: true };
+        } else {
+            return { success: false, message: 'User not found or description not updated' };
+        }
+    } catch (error) {
+        console.error('Error updating user description:', error);
+        return { success: false, message: 'Database error' };
+    } finally {
+        await db.end();
+    }
+}
+
+
+// Function to update box name and description
+async function updateBox(boxID, newBoxName, newBoxDescription) {
+    const db = await mysql.createConnection(config);
+
+    try {
+        const sanitizedDescription = newBoxDescription.slice(0, 4095); // Max length 4095 chars
+        const sql = `UPDATE Boxes SET TitleChosen = ?, BoxDescription = ? WHERE BoxID = ?`;
+        await db.query(sql, [newBoxName, newBoxDescription, boxID]);
+        console.log(`Box ${boxID} updated successfully.`);
+    } catch (error) {
+        console.error('Error updating box:', error);
+        throw error;
+    } finally {
+        await db.end();
+    }
+}
+
+
+
 
 async function insertFakeData() {
     const db = await mysql.createConnection(config);
@@ -850,15 +898,14 @@ async function insertFakeData() {
             const username = `user${i}`;
             const email = `user${i}@gmail.com`;
             const passwordHash = `password${i}`; // Just a simple password hash for testing
-            const isPublic = i % 2 === 0; // Alternate between public and private users
             const stealthMode = i % 3 === 0; // Every 3rd user has stealth mode on
             const userPFP = `user${i}.jpg`; // A simple profile picture filename
 
             // Insert the user into the Users table
             const userResult = await db.query(
-                `INSERT INTO Users (Username, UserPFP, Email, PasswordHash, IsPublic, StealthMode)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [username, userPFP, email, passwordHash, isPublic, stealthMode]
+                `INSERT INTO Users (Username, UserPFP, Email, PasswordHash, StealthMode)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [username, userPFP, email, passwordHash, stealthMode]
             );
             console.log(`Inserted User ${username}`);
 
@@ -934,6 +981,8 @@ module.exports = {
     getBoxByIDONLY,
     createFakeUser,
     fakeVerify,
+    updateUserDescription,
+    updateBox,
     "createBox": createBox,
     "addToBox": addToBox,
     "getBoxMedia": getBoxMedia,

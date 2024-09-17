@@ -1,16 +1,12 @@
 USE TimeToMove;
 
-
--- Drop the tables in any order now
-DROP TABLE IF EXISTS Visited;
+-- Drop the tables in the correct order to respect foreign key constraints
 DROP TABLE IF EXISTS BoxMedia;
-DROP TABLE IF EXISTS PublicBoxes;
-DROP TABLE IF EXISTS Leaderboard;
+DROP TABLE IF EXISTS Likes;
+DROP TABLE IF EXISTS Visited;
 DROP TABLE IF EXISTS Boxes;
 DROP TABLE IF EXISTS Users;
 DROP TABLE IF EXISTS TempUsers;
-
-
 
 CREATE TABLE TempUsers (
     TempUserID INT AUTO_INCREMENT PRIMARY KEY,
@@ -22,15 +18,13 @@ CREATE TABLE TempUsers (
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-
 CREATE TABLE Users (
     ID INT AUTO_INCREMENT PRIMARY KEY,
     Username VARCHAR(255) NOT NULL,
     UserPFP VARCHAR(255), -- Path to user profile picture
-    UserDescription VARCHAR(255),-- user description, maximum 20 words
+    UserDescription VARCHAR(4095),-- user description
     Email VARCHAR(255) UNIQUE, -- Ensure unique emails
     PasswordHash VARCHAR(255), -- Salted and hashed password
-    Salt VARCHAR(255),
     StealthMode BOOLEAN DEFAULT FALSE -- Stealth mode flag
 );
 
@@ -38,24 +32,21 @@ CREATE TABLE Boxes (
     BoxID INT AUTO_INCREMENT PRIMARY KEY,
     NrOfFiles INT,
     UserID INT,  -- Reference to the Users table
-    BoxDescription VARCHAR(255),
+    BoxDescription VARCHAR(4095),
     IsBoxPublic BOOLEAN DEFAULT FALSE,
     LabelChosen VARCHAR(255),
     TitleChosen VARCHAR(255),
     FOREIGN KEY (UserID) REFERENCES Users(ID) ON DELETE CASCADE -- Ensure referential integrity
 );
 
-
 CREATE TABLE BoxMedia (
     MediaID INT AUTO_INCREMENT PRIMARY KEY,
     BoxID INT,
     MediaPath VARCHAR(255),  -- Path to Media file
-    MediaType varchar(10),  -- Type of media Audio, PDF, txt etc.
+    MediaType VARCHAR(10),  -- Type of media Audio, PDF, txt etc.
     MediaSize INT,  -- Size of media file in bytes
     FOREIGN KEY (BoxID) REFERENCES Boxes(BoxID)
 );
-
-
 
 CREATE TABLE Visited (
     VisitID INT AUTO_INCREMENT PRIMARY KEY,
@@ -71,5 +62,3 @@ CREATE TABLE Likes (
     FOREIGN KEY (UserID) REFERENCES Users(ID),
     FOREIGN KEY (BoxID) REFERENCES Boxes(BoxID)
 );
-
-
