@@ -1,7 +1,8 @@
 .env
 /uploads/*
 !uploads/profiles
-/uploads/profiles/*
-!uploads/profiles/*.jpg
-!uploads/profiles/*.png
-!uploads/profiles/*.svg
+!uploads/labelStyles
+/uploads/labelStyles/*
+# !uploads/profiles/*.jpg
+# !uploads/profiles/*.png
+# !uploads/profiles/*.svg
