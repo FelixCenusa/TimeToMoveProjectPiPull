@@ -32,64 +32,73 @@ router.post('/create_user', async (req, res) => {
     }
 });
 
-router.get("/create_fake_user", (req, res) => {
-    return res.render('TimeToMove/fakeRegister.ejs',{ session: req.session })
-});
+// router.get("/create_fake_user", (req, res) => {
+//     return res.render('TimeToMove/fakeRegister.ejs',{ session: req.session })
+// });
 
-router.post('/create_fake_user', async (req, res) => {
-    const { username, email, password, isPublic } = req.body;
+// router.post('/create_fake_user', async (req, res) => {
+//     const { username, email, password, isPublic } = req.body;
     
-    try {
-        // Call the createFAKKEEEUser function to generate the token and send email
-        const result = await TimeToMove.createFakeUser(username, email, password, isPublic === 'true');
+//     try {
+//         // Call the createFAKKEEEUser function to generate the token and send email
+//         const result = await TimeToMove.createFakeUser(username, email, password, isPublic === 'true');
 
-        if (result.success) {
-            // Redirect the user to the /verify route after email is sent
-            return res.redirect('/fakeVerify');
-        } else {
-            // Handle error (e.g., username or email already exists)
-            return res.render('TimeToMove/index.ejs', { errorMessage: result.message, session: req.session });
-        }
-    } catch (error) {
-        console.error('Error during registration:', error);
-        return res.status(500).send('Error during registration.');
-    }
-});
+//         if (result.success) {
+//             // Redirect the user to the /verify route after email is sent
+//             return res.redirect('/fakeVerify');
+//         } else {
+//             // Handle error (e.g., username or email already exists)
+//             return res.render('TimeToMove/index.ejs', { errorMessage: result.message, session: req.session });
+//         }
+//     } catch (error) {
+//         console.error('Error during registration:', error);
+//         return res.status(500).send('Error during registration.');
+//     }
+// });
 
-router.get('/fakeVerify', (req, res) => {
-    // Render the verify page where the user will input the token
-    res.render('TimeToMove/fakeVerify.ejs',{ user: req.session.user,session: req.session });  // Render a view for token input
-});
+// router.get('/fakeVerify', (req, res) => {
+//     // Render the verify page where the user will input the token
+//     res.render('TimeToMove/fakeVerify.ejs',{ user: req.session.user,session: req.session });  // Render a view for token input
+// });
 
-// Route to handle token verification
-router.post('/fakeVerify', async (req, res) => {
-    const { token } = req.body;
+// // Route to handle token verification
+// router.post('/fakeVerify', async (req, res) => {
+//     const { token } = req.body;
 
-    try {
-        // Call the verify function in TimeToMove.js
-        const result = await TimeToMove.fakeVerify(token);
+//     try {
+//         // Call the verify function in TimeToMove.js
+//         const result = await TimeToMove.fakeVerify(token);
 
-        if (result.success) {
-            return res.redirect('/login');
-        } else {
-            //res.status(400).send(result.message);  // Send error message
-            return res.redirect('/create_fake_user');
-        }
-    } catch (error) {
-        console.error('Error during verification:', error);
-        res.status(500).send('Server error during verification.');
-    }
-});
+//         if (result.success) {
+//             return res.redirect('/login');
+//         } else {
+//             //res.status(400).send(result.message);  // Send error message
+//             return res.redirect('/create_fake_user');
+//         }
+//     } catch (error) {
+//         console.error('Error during verification:', error);
+//         res.status(500).send('Server error during verification.');
+//     }
+// });
 
 router.get('/', (req, res) => {
     const isLoggedIn = !!req.session.user;  // Check if the user is logged in
+    // get the contents from wthe lastUpdated.md file and send the data to the index.ejs
+    let data = {};
+    try {
+        data.lastUpdated = fs.readFileSync(path.join(__dirname, '..', 'lastUpdated.md'), 'utf8');
+    } catch (error) {
+        console.error('Error reading lastUpdated.md:', error);
+        data.lastUpdated = 'Error loading last updated date.';
+    }
+    
 
     if (isLoggedIn) {
         // If the user is logged in, show the dashboard or custom content
-        res.render('TimeToMove/index.ejs', { user: req.session.user,session: req.session });
+        res.render('TimeToMove/index.ejs', { user: req.session.user,session: req.session, data });
     } else {
         // If not logged in, show the homepage or a general landing page
-        res.render('TimeToMove/index.ejs',{ user: req.session.user,session: req.session });
+        res.render('TimeToMove/index.ejs',{ user: req.session.user,session: req.session, data });
     }
 });
 
