@@ -3,6 +3,8 @@
 !uploads/profiles
 !uploads/labelStyles
 /uploads/labelStyles/*
+/uploads/profiles/*
+
 # !uploads/profiles/*.jpg
 # !uploads/profiles/*.png
 # !uploads/profiles/*.svg
