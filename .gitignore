@@ -2,8 +2,8 @@
 /uploads/*
 !uploads/profiles
 !uploads/labelStyles
-/uploads/labelStyles/*
 /uploads/profiles/*
+/uploads/labelStyles/*
 
 # !uploads/profiles/*.jpg
 # !uploads/profiles/*.png
