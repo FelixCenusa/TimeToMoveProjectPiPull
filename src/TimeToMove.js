@@ -66,7 +66,7 @@ async function createUser(username, email, password, isPublic) {
     const db = await mysql.createConnection(config);
 
     try {
-        const restrictedUsernames = ['profiles', 'about', 'login', 'register', 'leaderboard'];
+        const restrictedUsernames = ['profiles', 'about', 'login', 'register', 'leaderboard', 'labelStyles'];
         if (restrictedUsernames.includes(username.toLowerCase())) {
             return { success: false, message: 'This username is not allowed.' };
         }
@@ -329,12 +329,12 @@ async function getAllUsers() {
     }
 }
 
-// Function to fetch all boxes created by a specific user
-async function getUserBoxes(userId) {
+// Function to fetch all boxes created by a specific user with sorting
+async function getUserBoxes(userId, sortQuery = 'ORDER BY BoxID DESC') {
     const db = await mysql.createConnection(config);
 
     try {
-        const sql = `SELECT * FROM Boxes WHERE UserID = ?`;
+        const sql = `SELECT * FROM Boxes WHERE UserID = ? ${sortQuery}`;
         let res = await db.query(sql, [userId]);
 
         // Log the result for debugging
@@ -352,16 +352,41 @@ async function getUserBoxes(userId) {
 
 
 
-// Function to create a new box (only box-specific details)
-async function createBox(userId, isBoxPublic, label) {
-    const db = await mysql.createConnection(config);
+// // Function to create a new box (only box-specific details)
+// async function createBox(userId, isBoxPublic, label) {
+//     const db = await mysql.createConnection(config);
 
+//     try {
+//         const sql = `INSERT INTO Boxes (UserID, IsBoxPublic, TitleChosen, NrOfFiles) VALUES (?, ?, ?, 0)`;
+//         await db.query(sql, [userId, isBoxPublic, label]);  // Potential issue here
+//         console.log('New box created successfully.');
+//     } catch (error) {
+//         console.error('Error creating new box:', error);
+//     } finally {
+//         await db.end();
+//     }
+// }
+
+// Function to create a new box (includes label style and border round)
+async function createBox(userId, isBoxPublic, label, labelStyleUrl, borderImageSlice, borderImageRepeat) {
+    const db = await mysql.createConnection(config);
+    // console.log("userId", userId);
+    // console.log("isBoxPublic", isBoxPublic);
+    // console.log("label", label);
+    // console.log("labelStyleUrl", labelStyleUrl);
+    // console.log("borderImageSlice", borderImageSlice);
+    // console.log("borderImageRepeat", borderImageRepeat);
+    // console.log("Inside createBox function");
     try {
-        const sql = `INSERT INTO Boxes (UserID, IsBoxPublic, TitleChosen, NrOfFiles) VALUES (?, ?, ?, 0)`;
-        await db.query(sql, [userId, isBoxPublic, label]);  // Potential issue here
+        const sql = `
+            INSERT INTO Boxes (UserID, IsBoxPublic, TitleChosen, NrOfFiles, LabelChosen, BorderImageSlice, BorderImageRepeat)
+            VALUES (?, ?, ?, 0, ?, ?, ?)
+        `;
+        await db.query(sql, [userId, isBoxPublic, label, labelStyleUrl, borderImageSlice, borderImageRepeat]);
         console.log('New box created successfully.');
     } catch (error) {
         console.error('Error creating new box:', error);
+        throw error;
     } finally {
         await db.end();
     }
@@ -909,6 +934,7 @@ async function updateUserProfilePic(username, filename) {
         await db.end();
     }
 }
+
 
 async function insertFakeData() {
     const db = await mysql.createConnection(config);

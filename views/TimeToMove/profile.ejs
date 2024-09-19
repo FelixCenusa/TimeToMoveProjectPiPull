@@ -42,7 +42,7 @@
 
     
     <!-- Display the form to create a new box if it's the user's own profile -->
-    <h2>Create a New Box</h2>
+    <!-- <h2>Create a New Box</h2>
     <form action="/create_box" method="POST" class="create-box-form">
         <div class="form-group">
             <label for="label">Box Title:</label>
@@ -56,7 +56,81 @@
             </select>
         </div>
         <button type="submit" class="btn-submit">Create Box</button>
+    </form> -->
+    <!-- Display the form to create a new box if it's the user's own profile -->
+    <h2>Create a New Box</h2>
+    <form action="/create_box" method="POST" class="create-box-form">
+        <div class="form-group">
+            <label for="label">Box Title:</label>
+            <input type="text" id="label" name="label" required>
+        </div>
+        <div class="form-group">
+            <label for="isPublic">Is Public:</label>
+            <select id="isPublic" name="isPublic">
+                <option value="true">Public</option>
+                <option value="false">Private</option>
+            </select>
+        </div>
+        <!-- Hidden inputs to store label style and border repeat -->
+        <input type="hidden" id="labelStyleUrl" name="labelStyleUrl">
+        <input type="hidden" id="borderImageSlice" name="borderImageSlice">
+        <input type="hidden" id="borderImageRepeat" name="borderImageRepeat">
+        <!-- Button to open the Label Style modal -->
+        <button type="button" class="btn-add-label-style" onclick="openLabelStyleModal()">Add Label Style</button>
+        <button type="submit" class="btn-submit">Create Box</button>
     </form>
+
+    <!-- Label Style Modal -->
+<div id="labelStyleModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeLabelStyleModal()">&times;</span>
+        <h2>Select Label Style</h2>
+        
+        <!-- Option to upload a new label style -->
+        <form id="uploadLabelStyleForm" action="/upload_label_style" method="POST" enctype="multipart/form-data">
+            <label for="newLabelStyle">Upload New Label Style:</label>
+            <input type="file" id="newLabelStyle" name="newLabelStyle" accept="image/*">
+            <button type="submit">Upload</button>
+            <p><em>Any image/style uploaded will be available for all users to use.</em></p>
+        </form>
+
+        <!-- Display existing label styles -->
+        <h3>Or choose from existing:</h3>
+        <div class="label-styles-container">
+            <% if (labelStyles && labelStyles.length > 0) { %>
+                <% labelStyles.forEach(function(style) { %>
+                    <img src="/uploads/labelStyles/<%= style.filename %>" alt="Label Style" class="label-style-image" data-filename="<%= style.filename %>" onclick="selectLabelStyle('<%= style.filename %>', this)">
+                <% }); %>
+            <% } else { %>
+                <p>No label styles available.</p>
+            <% } %>
+        </div>
+
+        <!-- Input for 'slice' value -->
+        <label for="borderImageSliceInput">Border Image Slice Value (e.g., 30):</label>
+        <input type="range" id="borderImageSliceInput" min="1" max="100" value="30" oninput="updateLabelStylePreview(); document.getElementById('sliceValueDisplay').innerText = this.value;">
+        
+        <!-- Display the current slider value -->
+        <span id="sliceValueDisplay">30</span>
+        <h3></h3>
+        <!-- Select for 'repeat' value -->
+        <label for="borderImageRepeatSelect">Border Image Repeat:</label>
+        <select id="borderImageRepeatSelect" onchange="updateLabelStylePreview()">
+            <option value="repeat">Repeat</option>
+            <option value="round">Round</option>
+            <option value="stretch">Stretch</option>
+            <option value="space">Space</option>
+        </select>
+        <!-- **Add the Preview Area Here** -->
+        <h3>Preview:</h3>
+        <div id="labelStylePreview" class="label-style-preview">
+            <p>Box Preview</p>
+        </div>
+
+        <button type="button" onclick="applyLabelStyle()">Apply Label Style</button>
+    </div>
+</div>
+    
 <% } else { %>
     <!-- Show message if viewing someone else's profile -->
     <h1>Welcome to <%= user.Username %>'s Profile</h1>
@@ -98,26 +172,43 @@
 
 <!-- Say "username"'s boxes -->
 <h2><%= user.Username %>'s Boxes</h2>
+<!-- Add a form for sorting the boxes -->
+<form id="sortForm" method="GET" action="/<%= user.Username %>">
+    <label for="sortOrder">Sort by:</label>
+    <select id="sortOrder" name="sortOrder" onchange="document.getElementById('sortForm').submit();">
+        <option value="recent" <%= (sortOrder === 'recent' ? 'selected' : '') %>>Most Recent</option>
+        <option value="mostContent" <%= (sortOrder === 'mostContent' ? 'selected' : '') %>>Most Content</option>
+    </select>
+</form>
 <div class="box-container">
     <% if (Array.isArray(boxes) && boxes.length > 0) { %>
         <% boxes.forEach(function(box) { %>
-            <div class="box-card">
+            <div class="box-card" style="
+                <% if (box.LabelChosen) { %>
+                    border: 10px solid transparent;
+                    border-image-source: url('/uploads/labelStyles/<%= box.LabelChosen %>');
+                    border-image-slice: <%= box.BorderImageSlice || 30 %>;;
+                    border-image-repeat: <%= box.BorderImageRepeat || 'repeat' %>;
+                <% } %>
+            " id="box-<%= box.BoxID %>">
                 <h3>
                     <a href="/<%= user.Username %>/<%= box.TitleChosen %>">
                         <%= box.TitleChosen %>
                     </a>
                 </h3>
-
                 <!-- Edit and Delete buttons (only for the profile owner) -->
                 <% if (session.user && session.user.username === user.Username) { %>
                     <button class="edit-btn" onclick="openEditBoxModal(<%= box.BoxID %>, '<%= box.TitleChosen %>', '<%= box.BoxDescription %>')">Edit</button>
                     <button class="delete-btn" onclick="openDeleteBoxModal(<%= box.BoxID %>, '<%= box.TitleChosen %>')">Delete</button>
                 <% } %>
-
+                <!-- Print button (visible for all users) -->
+                
                 <p><strong>Description:</strong> <%= box.BoxDescription ? box.BoxDescription : 'No description provided.' %></p>
                 <p><strong>Is Public:</strong> <%= box.IsBoxPublic ? 'Yes' : 'No' %></p>
                 <p><strong>Number of Files:</strong> <%= box.NrOfFiles %></p>
-
+                
+                <button class="print-btn" onclick="printBox(<%= box.BoxID %>)">Print</button>
+                
                 <!-- Display QR code for public boxes -->
                 <% if (box.IsBoxPublic && box.qrCodeDataURL) { %>
                     <div class="qr-code-container">
@@ -170,6 +261,8 @@
 <%- include('./../partials/footer.ejs') %>
 
 <script>
+
+
 // Function to open the edit modal
 function openEditBoxModal(boxID, currentBoxName, currentBoxDescription) {
     document.getElementById('newBoxName').value = currentBoxName;
@@ -339,9 +432,117 @@ function deleteProfilePicture() {
 }
 
 
+let selectedLabelStyle = '';
+
+function openLabelStyleModal() {
+    document.getElementById('labelStyleModal').style.display = 'block';
+
+    // Initialize the preview
+    updateLabelStylePreview();
+}
+
+function closeLabelStyleModal() {
+    document.getElementById('labelStyleModal').style.display = 'none';
+}
+
+function selectLabelStyle(filename, imgElement) {
+    // Store the selected label style filename
+    selectedLabelStyle = filename;
+
+    // Highlight the selected image
+    const images = document.querySelectorAll('.label-style-image');
+    images.forEach(img => {
+        img.classList.remove('selected');
+    });
+    imgElement.classList.add('selected');
+
+    // Update the preview
+    updateLabelStylePreview();
+}
+
+function updateLabelStylePreview() {
+    const borderImageSliceInput = document.getElementById('borderImageSliceInput');
+    const borderImageRepeatSelect = document.getElementById('borderImageRepeatSelect');
+    const borderImageSlice = borderImageSliceInput.value || '30'; // Default value
+    const borderImageRepeat = borderImageRepeatSelect.value || 'repeat'; // Default value
+    const previewElement = document.getElementById('labelStylePreview');
+
+    if (selectedLabelStyle) {
+        previewElement.style.border = '10px solid transparent';
+        previewElement.style.borderImageSource = `url('/uploads/labelStyles/${selectedLabelStyle}')`;
+        previewElement.style.borderImageSlice = borderImageSlice;
+        previewElement.style.borderImageRepeat = borderImageRepeat;
+    } else {
+        // Reset to default if no label style is selected
+        previewElement.style.border = 'none';
+        previewElement.style.borderImage = 'none';
+    }
+}
+
+function applyLabelStyle() {
+    // Get the 'slice' and 'repeat' variable values
+    const borderImageSlice = document.getElementById('borderImageSliceInput').value;
+    const borderImageRepeat = document.getElementById('borderImageRepeatSelect').value;
+
+    // Set the hidden inputs in the form
+    document.getElementById('labelStyleUrl').value = selectedLabelStyle;
+    document.getElementById('borderImageSlice').value = borderImageSlice;
+    document.getElementById('borderImageRepeat').value = borderImageRepeat;
+
+    // Close the modal
+    closeLabelStyleModal();
+}
+
+// src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.4.1/html2canvas.min.js"
+// src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.3.2/jspdf.min.js"
+function printBox(boxID) {
+    console.log("Print button clicked for box:", boxID);  // Debugging line
+
+    const boxElement = document.getElementById(`box-${boxID}`);  // Use the correct box ID format
+    if (!boxElement) {
+        console.error("Box element not found.");  // Add error handling if the element is not found
+        return;
+    }
+
+    html2canvas(boxElement, { scale: 2 }).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const imgWidth = 190;  // Adjust image width to fit within the PDF
+        const pageHeight = pdf.internal.pageSize.height;
+        const imgHeight = canvas.height * imgWidth / canvas.width;
+
+        pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+        pdf.save(`Box-${boxID}.pdf`);
+    }).catch(function(error) {
+        console.error("Error capturing box with html2canvas:", error);
+    });
+}
+
+// JavaScript function to sort boxes
+function sortBoxes() {
+    const sortOrder = document.getElementById('sortOrder').value;
+    const username = "<%= user.Username %>"; // Fetch username dynamically
+    window.location.href = `/${username}?sortOrder=${sortOrder}`;
+}
+
 </script>
 
 <style>
+.print-btn {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        padding: 5px 10px;
+        font-size: 14px;
+        margin-left: 10px;
+    }
+
+    .print-btn:hover {
+        background-color: #218838;
+    }
+
 .delete-profile-pic-btn {
     margin-top: 10px;
     background-color: #dc3545; /* Red color */
@@ -515,5 +716,103 @@ function deleteProfilePicture() {
     height: 150px;
 }
 
+/* Modal styles (reuse or adjust existing modal styles) */
+/* .modal {
+} */
+
+.modal-content {
+    /* Existing modal-content styles */
+}
+
+/* Label Style Images */
+.label-styles-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.label-style-image {
+    width: 100px;
+    height: 100px;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.label-style-image.selected {
+    border: 2px solid blue;
+}
+/* Label Style Preview */
+.label-style-preview {
+    width: 200px;
+    height: 100px;
+    margin-top: 10px;
+    padding: 10px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+/* Optional: Style the preview text */
+.label-style-preview p {
+    margin: 0;
+    line-height: 80px; /* Vertically center the text */
+}
+
+/* Style the slider container */
+.slider-container {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+}
+
+/* Style the slider itself */
+#borderImageSliceInput {
+    -webkit-appearance: none;
+    width: 200px;
+    height: 10px;
+    background: linear-gradient(to right, #ff0000, #ff9900, #ffff00, #00ff00, #00ccff, #0066ff, #cc00ff);
+    border-radius: 5px;
+    outline: none;
+    transition: background 0.3s ease;
+    margin-right: 10px;
+}
+
+#borderImageSliceInput::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #ffffff;
+    border: 2px solid #333;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+#borderImageSliceInput::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #ffffff;
+    border: 2px solid #333;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+#borderImageSliceInput::-webkit-slider-thumb:hover, 
+#borderImageSliceInput::-moz-range-thumb:hover {
+    background: #ff9900;
+}
+
+#sliceValueDisplay {
+    font-size: 16px;
+    font-weight: bold;
+    color: #007bff;
+}
+
+
 
 </style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.3.2/jspdf.min.js"></script>

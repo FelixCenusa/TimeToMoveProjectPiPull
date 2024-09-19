@@ -212,27 +212,101 @@ router.get("/all_users", async (req, res) => {
     res.render("TimeToMove/all_users.ejs", { data,user: req.session ,session: req.session});
 });
 
+// router.post('/create_box', async (req, res) => {
+//     // Check if the user is logged in
+//     if (!req.session.user) {
+//         return res.redirect('/login');
+//     }
+//     const { label, isPublic } = req.body;
+//     const userId = req.session.user.id;  // Get the user ID from the session
+//     console.log("label", label);
+//     console.log("isPublic", isPublic);
+//     console.log("userId", userId);
+//     console.log("req.session.user", req.session.user);
+
+//     try {
+//         // Call the function to create a new box
+//         await TimeToMove.createBox(userId, isPublic === 'true', label);
+//         // After creating the box, redirect back to the account page
+//         res.redirect(`/${req.session.user.username}`);
+//     } catch (error) {
+//         console.error('Error creating box:', error);
+//         res.status(500).send('Error creating box.');
+//     }
+// });
+// Route to handle box creation
 router.post('/create_box', async (req, res) => {
     // Check if the user is logged in
     if (!req.session.user) {
         return res.redirect('/login');
     }
-    const { label, isPublic } = req.body;
+    console.log(req.body);
+    const { label, isPublic, labelStyleUrl, borderImageSlice, borderImageRepeat } = req.body;
     const userId = req.session.user.id;  // Get the user ID from the session
-    console.log("label", label);
-    console.log("isPublic", isPublic);
-    console.log("userId", userId);
-    console.log("req.session.user", req.session.user);
+    // console.log("req.body here");
+    // console.log("userId", userId);
+    // console.log("label", label);
+    // console.log("labelStyleUrl", labelStyleUrl);
+    // console.log("borderImageSlice", borderImageSlice);
+    // console.log("borderImageRepeat", borderImageRepeat);
+    // console.log("Inside create_box route");
+    // console.log("isPublic", isPublic);
 
     try {
         // Call the function to create a new box
-        await TimeToMove.createBox(userId, isPublic === 'true', label);
+        await TimeToMove.createBox(userId, isPublic === 'true', label, labelStyleUrl, borderImageSlice, borderImageRepeat);
         // After creating the box, redirect back to the account page
         res.redirect(`/${req.session.user.username}`);
     } catch (error) {
         console.error('Error creating box:', error);
         res.status(500).send('Error creating box.');
     }
+});
+
+// Route to handle label style upload
+const labelStyleStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadPath = path.join(__dirname, '..', 'uploads', 'labelStyles');
+        cb(null, uploadPath);
+    },
+    filename: function (req, file, cb) {
+        const ext = path.extname(file.originalname);
+        const filename = Date.now() + '_' + file.originalname;
+        cb(null, filename);
+    }
+});
+
+const uploadLabelStyle = multer({
+    storage: labelStyleStorage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
+    fileFilter: function (req, file, cb) {
+        const allowedTypes = /jpeg|jpg|png|gif/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
+
+        if (mimetype && extname) {
+            return cb(null, true);
+        } else {
+            cb(new Error('Invalid file type. Only JPG, PNG, and GIF are allowed.'));
+        }
+    }
+}).single('newLabelStyle');
+
+router.post('/upload_label_style', function (req, res) {
+    // Ensure the user is logged in
+    if (!req.session.user) {
+        return res.status(403).send('Unauthorized');
+    }
+
+    uploadLabelStyle(req, res, function (err) {
+        if (err) {
+            console.error('Error uploading label style:', err);
+            return res.status(400).send(err.message);
+        }
+
+        // After successful upload, redirect back to the user's profile
+        res.redirect(`/${req.session.user.username}`);
+    });
 });
 
 
@@ -277,10 +351,64 @@ router.get("/welcome", (req, res) => {
 });
 
 
-// Update the route handler for '/:username'
+// // Update the route handler for '/:username'
+// router.get('/:username', async (req, res) => {
+//     const { username } = req.params;
+//     const session = req.session;
+
+//     try {
+//         // Fetch the user by username
+//         const user = await TimeToMove.getUserByUsername(username);
+
+//         if (!user) {
+//             console.log('User not found:', username);
+//             return res.status(404).send('User not found');
+//         }
+
+//         // Fetch the boxes created by the user
+//         const userBoxes = await TimeToMove.getUserBoxes(user.ID);
+
+//         // Generate QR codes for public boxes
+//         for (const box of userBoxes) {
+//             if (box.IsBoxPublic) {
+//                 // Generate the box URL
+//                 const boxURL = `${req.protocol}://${req.get('host')}/${username}/${box.TitleChosen}`;
+
+//                 // Generate the QR code data URL
+//                 const qrCodeDataURL = await QRCode.toDataURL(boxURL);
+
+//                 // Add the qrCodeDataURL to the box object
+//                 box.qrCodeDataURL = qrCodeDataURL;
+//             } else {
+//                 // Box is not public, do not generate QR code
+//                 box.qrCodeDataURL = null;
+//             }
+//         }
+
+//         // Render the user's profile page
+//         res.render('TimeToMove/profile.ejs', {
+//             user,
+//             boxes: userBoxes,
+//             isOwner: session.user && session.user.username === user.Username,
+//             session: session
+//         });
+//     } catch (error) {
+//         console.error('Error loading user profile:', error);
+//         res.status(500).send('Error loading profile.');
+//     }
+// });
+
 router.get('/:username', async (req, res) => {
     const { username } = req.params;
     const session = req.session;
+    const sortOrder = req.query.sortOrder || 'recent';  // Default to 'recent' if no sort order is provided
+
+    let sortQuery;
+    if (sortOrder === 'mostContent') {
+        sortQuery = 'ORDER BY NrOfFiles DESC';  // Sort by the number of files in each box
+    } else {
+        sortQuery = 'ORDER BY BoxID DESC';  // Default: Sort by most recent
+    }
 
     try {
         // Fetch the user by username
@@ -291,32 +419,36 @@ router.get('/:username', async (req, res) => {
             return res.status(404).send('User not found');
         }
 
-        // Fetch the boxes created by the user
-        const userBoxes = await TimeToMove.getUserBoxes(user.ID);
+        // Fetch the boxes created by the user with the selected sort order
+        const userBoxes = await TimeToMove.getUserBoxes(user.ID, sortQuery);
 
         // Generate QR codes for public boxes
         for (const box of userBoxes) {
             if (box.IsBoxPublic) {
-                // Generate the box URL
                 const boxURL = `${req.protocol}://${req.get('host')}/${username}/${box.TitleChosen}`;
-
-                // Generate the QR code data URL
                 const qrCodeDataURL = await QRCode.toDataURL(boxURL);
-
-                // Add the qrCodeDataURL to the box object
                 box.qrCodeDataURL = qrCodeDataURL;
             } else {
-                // Box is not public, do not generate QR code
                 box.qrCodeDataURL = null;
             }
+        }
+
+        // Get the list of label styles
+        const labelStylesDir = path.join(__dirname, '..', 'uploads', 'labelStyles');
+        let labelStyles = [];
+        if (fs.existsSync(labelStylesDir)) {
+            const files = fs.readdirSync(labelStylesDir);
+            labelStyles = files.map(filename => ({ filename }));
         }
 
         // Render the user's profile page
         res.render('TimeToMove/profile.ejs', {
             user,
             boxes: userBoxes,
+            labelStyles: labelStyles,
             isOwner: session.user && session.user.username === user.Username,
-            session: session
+            session: session,
+            sortOrder // Pass the current sort order to the template
         });
     } catch (error) {
         console.error('Error loading user profile:', error);

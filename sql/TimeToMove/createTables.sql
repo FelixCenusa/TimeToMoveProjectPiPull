@@ -35,6 +35,8 @@ CREATE TABLE Boxes (
     BoxDescription VARCHAR(4095),
     IsBoxPublic BOOLEAN DEFAULT FALSE,
     LabelChosen VARCHAR(255),
+    BorderImageSlice VARCHAR(50),
+    BorderImageRepeat VARCHAR(50),
     TitleChosen VARCHAR(255),
     FOREIGN KEY (UserID) REFERENCES Users(ID) ON DELETE CASCADE -- Ensure referential integrity
 );
