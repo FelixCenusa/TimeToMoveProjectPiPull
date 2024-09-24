@@ -1,108 +1,131 @@
 <%- include('./../partials/header.ejs') %>
 
-<!-- Display Profile Picture -->
-<div class="profile-picture-container">
-    <% if (user.UserPFP) { %>
-        <img 
-            src="/uploads/profiles/<%= user.UserPFP %>" 
-            alt="<%= user.Username %>'s Profile Picture" 
-            class="profile-picture"
-            <% if (session.user && session.user.username === user.Username) { %>
-                onclick="triggerProfilePicUpload()"
-            <% } %>
-            onerror="this.onerror=null; this.src='/uploads/profiles/user-circle.svg';"
-        >
-        
-            <% } else { %>
-        <img 
-            src="/uploads/profiles/user-circle.svg" 
-            alt="Default Profile Picture" 
-            class="profile-picture"
-            <% if (session.user && session.user.username === user.Username) { %>
-                onclick="triggerProfilePicUpload()"
-            <% } %>
-        >
-    <% } %>
-</div>
+<div class="profile-container">
+    <!-- Profile and Greeting Section -->
+<div class="profile-box-card">
+    <div class="profile-picture-container">
+        <% if (user.UserPFP) { %>
+            <div class="profile-picture-wrapper">
+                <img src="/uploads/profiles/<%= user.UserPFP %>" 
+                     alt="<%= user.Username %>'s Profile Picture" 
+                     class="profile-picture"
+                     <% if (session.user && session.user.username === user.Username) { %>
+                        onclick="triggerProfilePicUpload()"
+                     <% } %>
+                     onerror="this.onerror=null; this.src='/uploads/profiles/user-circle.svg';">
+                
+                <!-- Hover options: Upload and Delete -->
+                <% if (session.user && session.user.username === user.Username) { %>
+                    <div class="profile-picture-options">
+                        <button class="edit-profile-pic-btn" onclick="triggerProfilePicUpload()">Change</button>
+                        <button class="delete-profile-pic-btn" onclick="deleteProfilePicture()">Delete</button>
+                    </div>
+                <% } %>
+            </div>
+        <% } else { %>
+            <div class="profile-picture-wrapper">
+                <img src="/uploads/profiles/user-circle.svg" 
+                     alt="Default Profile Picture" 
+                     class="profile-picture"
+                     <% if (session.user && session.user.username === user.Username) { %>
+                        onclick="triggerProfilePicUpload()"
+                     <% } %>>
+                
+                <!-- Hover options: Upload (when no picture is set) -->
+                <% if (session.user && session.user.username === user.Username) { %>
+                    <div class="profile-picture-options">
+                        <button class="edit-profile-pic-btn" onclick="triggerProfilePicUpload()">Upload</button>
+                    </div>
+                <% } %>
+            </div>
+        <% } %>
 
-<% if (session.user && session.user.username === user.Username) { %>
-            <!-- Add Delete Profile Picture button -->
-            <button class="delete-profile-pic-btn" onclick="deleteProfilePicture()">Delete Profile Picture</button>
-            <!-- Hidden form for uploading profile picture style="cursor: pointer;"-->
+        <!-- Hidden form for uploading profile picture -->
+        <% if (session.user && session.user.username === user.Username) { %>
             <form id="profilePicForm" action="/<%= user.Username %>/uploadProfilePic" method="POST" enctype="multipart/form-data" style="display: none;">
                 <input type="file" id="profilePicInput" name="profilePic" accept="image/*" onchange="submitProfilePicForm()">
             </form>
-            <% } %>
+        <% } %>
+    </div>
+
+    <div class="profile-info">
+        <% if (session.user && session.user.username === user.Username) { %>
+        <h2>Welcome, <%= user.Username %>!</h2>
+        <p class="greeting">It's great to see you back. Check out your profile and manage your boxes below.</p>
+        <!-- Display the user's description -->
+        <div class="user-description" id="description-box" onclick="toggleEditDescription()">
+            <h3>About <%= user.Username %>:</h3>
+            <p id="description-text"><%= user.UserDescription ? user.UserDescription : 'This user has not added a description yet.' %></p>
+        </div>
+        <% } else { %>
+        <h2><%= user.Username %>'s Profile</h2>
+        <!-- Display the user's description -->
+        <div class="user-description">
+            <h3>About <%= user.Username %>:</h3>
+            <p><%= user.UserDescription ? user.UserDescription : 'This user has not added a description yet.' %></p>
+        </div>
+        <% } %>
+
+        <!-- Hidden form to edit the description -->
+        <div id="edit-description-form" style="display: none;">
+            <form action="/<%= user.Username %>/editDescription" method="POST">
+                <textarea name="UserDescription" id="UserDescription" rows="3" placeholder="Enter your description (max 4095 characters)" required maxlength="4095"><%= user.UserDescription || '' %></textarea>
+                <div id="charCountWrapper">
+                    <span id="charCount">0</span>/4095 characters
+                </div>
+                <button type="submit" class="btn-submit">Update Description</button>
+                <button type="button" class="btn-cancel" onclick="toggleEditDescription()">Cancel</button>
+            </form>
+        </div>
+    </div>
+</div>
 
 <% if (session.user && session.user.username === user.Username) { %>
-    <!-- Show welcome message if it's the logged-in user's profile -->
-    <h1>Welcome to your profile, <%= user.Username %>!</h1>
-    
-    
-
-    
-    <!-- Display the form to create a new box if it's the user's own profile -->
-    <!-- <h2>Create a New Box</h2>
+    <!-- Create Box Section -->
+<div class="create-box-card">
+    <h2 class="create-box-title">Create a New Box</h2>
     <form action="/create_box" method="POST" class="create-box-form">
         <div class="form-group">
             <label for="label">Box Title:</label>
-            <input type="text" id="label" name="label" required>
+            <input type="text" id="label" name="label" class="form-control" placeholder="Enter box title" required oninput="replaceSpaces(this)">
         </div>
         <div class="form-group">
-            <label for="isPublic">Is Public:</label>
-            <select id="isPublic" name="isPublic">
+            <label for="isPublic">Box Visibility:</label>
+            <select id="isPublic" name="isPublic" class="form-control">
                 <option value="true">Public</option>
                 <option value="false">Private</option>
             </select>
         </div>
-        <button type="submit" class="btn-submit">Create Box</button>
-    </form> -->
-    <!-- Display the form to create a new box if it's the user's own profile -->
-    <h2>Create a New Box</h2>
-    <form action="/create_box" method="POST" class="create-box-form">
-        <div class="form-group">
-            <label for="label">Box Title:</label>
-            <input type="text" id="label" name="label" required>
-        </div>
-        <div class="form-group">
-            <label for="isPublic">Is Public:</label>
-            <select id="isPublic" name="isPublic">
-                <option value="true">Public</option>
-                <option value="false">Private</option>
-            </select>
-        </div>
-        <!-- Hidden inputs to store label style and border repeat -->
         <input type="hidden" id="labelStyleUrl" name="labelStyleUrl">
         <input type="hidden" id="borderImageSlice" name="borderImageSlice">
         <input type="hidden" id="borderImageRepeat" name="borderImageRepeat">
-        <!-- Button to open the Label Style modal -->
         <button type="button" class="btn-add-label-style" onclick="openLabelStyleModal()">Add Label Style</button>
         <button type="submit" class="btn-submit">Create Box</button>
     </form>
+</div>
+</div>
 
-    <!-- Label Style Modal -->
+<!-- Label Style Modal -->
 <div id="labelStyleModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeLabelStyleModal()">&times;</span>
         <h2>Select Label Style</h2>
         
         <!-- Option to upload a new label style -->
-        <form id="uploadLabelStyleForm" action="/upload_label_style" method="POST" enctype="multipart/form-data">
-            <label for="newLabelStyle">Upload New Label Style:</label>
-            <input type="file" id="newLabelStyle" name="newLabelStyle" accept="image/*">
-            <button type="submit">Upload</button>
-            <p><em>Any image/style uploaded will be available for all users to use.</em></p>
+        <form id="uploadLabelStyleForm" action="/upload_label_style" method="POST" enctype="multipart/form-data" class="upload-label-style-form">
+            <label for="newLabelStyle" class="upload-label">Upload New Label Style:</label>
+            <input type="file" id="newLabelStyle" name="newLabelStyle" accept="image/*" class="file-input">
+            <button type="submit" class="btn-submit">Upload</button>
+            <p class="upload-note"><em>Any image/style uploaded will be available for all users to use.</em></p>
         </form>
 
         <!-- Display existing label styles -->
-        <h3>Or choose from existing:</h3>
+        <h3><strong>Or choose from existing:</strong></h3>
         <div class="label-styles-container">
             <% if (labelStyles && labelStyles.length > 0) { %>
                 <% labelStyles.forEach(function(style) { %>
                     <img src="/uploads/labelStyles/<%= style.filename %>" alt="Label Style" class="label-style-image" data-filename="<%= style.filename %>" onclick="selectLabelStyle('<%= style.filename %>', this)">
                 <% }); %>
-            <% } else { %>
-                <p>No label styles available.</p>
             <% } %>
         </div>
 
@@ -112,7 +135,7 @@
         
         <!-- Display the current slider value -->
         <span id="sliceValueDisplay">30</span>
-        <h3></h3>
+        
         <!-- Select for 'repeat' value -->
         <label for="borderImageRepeatSelect">Border Image Repeat:</label>
         <select id="borderImageRepeatSelect" onchange="updateLabelStylePreview()">
@@ -121,61 +144,29 @@
             <option value="stretch">Stretch</option>
             <option value="space">Space</option>
         </select>
-        <!-- **Add the Preview Area Here** -->
+
+        <!-- Preview -->
         <h3>Preview:</h3>
         <div id="labelStylePreview" class="label-style-preview">
             <p>Box Preview</p>
         </div>
 
-        <button type="button" onclick="applyLabelStyle()">Apply Label Style</button>
+        <button type="button" class="btn-apply" onclick="applyLabelStyle()">Apply Label Style</button>
     </div>
 </div>
-    
-<% } else { %>
-    <!-- Show message if viewing someone else's profile -->
-    <h1>Welcome to <%= user.Username %>'s Profile</h1>
 <% } %>
 
-<!-- Display the user's description -->
-<div class="user-description">
-    <h3>About <%= user.Username %>:</h3>
-    <p id="description-text"><%= user.UserDescription ? user.UserDescription : 'This user has not added a description yet.' %></p>
 
-    <% if (session.user && session.user.username === user.Username) { %>
-        <!-- Edit button next to the description -->
-        <button class="edit-btn" onclick="toggleEditDescription()">Edit</button>
-    <% } %>
 
-    <!-- Hidden form to edit the description, initially hidden -->
-<div id="edit-description-form" style="display: none;">
-    <form action="/<%= user.Username %>/editDescription" method="POST">
-        <textarea name="UserDescription" id="UserDescription" rows="3" placeholder="Enter your description (max 4095 characters)" required maxlength="4095"><%= user.UserDescription || '' %></textarea>
-        <div id="charCountWrapper">
-            <span id="charCount">0</span>/4095 characters
-        </div>
-        <button type="submit" class="btn-submit">Update Description</button>
-        <button type="button" class="btn-cancel" onclick="toggleEditDescription()">Cancel</button>
-    </form>
-</div>
 
-<!-- Display different content based on whether the user is logged in or not -->
-<% if (session.user) { %>
-    <p>You are logged in as <%= session.user.username %></p>
-    <a href="/logout">Log out</a>
-<% } else { %>
-    <p>You are viewing this profile as a guest.</p>
-    <a href="/login">Log in</a>
-<% } %>
 
-<!-- Display profile info -->
-<p><strong>Profile Visibility:</strong> <%= user.IsPublic ? 'Public' : 'Private' %></p>
 
 <!-- Say "username"'s boxes -->
-<h2><%= user.Username %>'s Boxes</h2>
-<!-- Add a form for sorting the boxes -->
-<form id="sortForm" method="GET" action="/<%= user.Username %>">
-    <label for="sortOrder">Sort by:</label>
-    <select id="sortOrder" name="sortOrder" onchange="document.getElementById('sortForm').submit();">
+<!-- <h2><%= user.Username %>'s Boxes</h2> -->
+<!-- Add a form for sorting the boxes with unique ID -->
+<form id="sortFormUnique" method="GET" action="/<%= user.Username %>" class="sort-form-unique">
+    <label for="sortOrderUnique">Sort by:</label>
+    <select id="sortOrderUnique" name="sortOrder" onchange="document.getElementById('sortFormUnique').submit();">
         <option value="recent" <%= (sortOrder === 'recent' ? 'selected' : '') %>>Most Recent</option>
         <option value="mostContent" <%= (sortOrder === 'mostContent' ? 'selected' : '') %>>Most Content</option>
     </select>
@@ -184,39 +175,44 @@
     <% if (Array.isArray(boxes) && boxes.length > 0) { %>
         <% boxes.forEach(function(box) { %>
             <div class="box-card" style="
-                <% if (box.LabelChosen) { %>
-                    border: 10px solid transparent;
-                    border-image-source: url('/uploads/labelStyles/<%= box.LabelChosen %>');
-                    border-image-slice: <%= box.BorderImageSlice || 30 %>;;
-                    border-image-repeat: <%= box.BorderImageRepeat || 'repeat' %>;
-                <% } %>
-            " id="box-<%= box.BoxID %>">
-                <h3>
-                    <a href="/<%= user.Username %>/<%= box.TitleChosen %>">
-                        <%= box.TitleChosen %>
-                    </a>
-                </h3>
-                <!-- Edit and Delete buttons (only for the profile owner) -->
-                <% if (session.user && session.user.username === user.Username) { %>
-                    <button class="edit-btn" onclick="openEditBoxModal(<%= box.BoxID %>, '<%= box.TitleChosen %>', '<%= box.BoxDescription %>')">Edit</button>
-                    <button class="delete-btn" onclick="openDeleteBoxModal(<%= box.BoxID %>, '<%= box.TitleChosen %>')">Delete</button>
-                <% } %>
-                <!-- Print button (visible for all users) -->
-                
-                <p><strong>Description:</strong> <%= box.BoxDescription ? box.BoxDescription : 'No description provided.' %></p>
-                <p><strong>Is Public:</strong> <%= box.IsBoxPublic ? 'Yes' : 'No' %></p>
-                <p><strong>Number of Files:</strong> <%= box.NrOfFiles %></p>
-                
-                <button class="print-btn" onclick="printBox(<%= box.BoxID %>)">Print</button>
-                
-                <!-- Display QR code for public boxes -->
-                <% if (box.IsBoxPublic && box.qrCodeDataURL) { %>
-                    <div class="qr-code-container">
-                        <h4>Share this Box:</h4>
-                        <img src="<%= box.qrCodeDataURL %>" alt="QR Code for <%= box.TitleChosen %>">
-                    </div>
-                <% } %>
-            </div>
+    <% if (box.LabelChosen) { %>
+        border: 10px solid transparent;
+        border-image-source: url('/uploads/labelStyles/<%= box.LabelChosen %>');
+        border-image-slice: <%= box.BorderImageSlice || 30 %>;
+        border-image-repeat: <%= box.BorderImageRepeat || 'repeat' %>;
+    <% } %>
+" id="box-<%= box.BoxID %>" onclick="window.location.href='/<%= user.Username %>/<%= box.TitleChosen %>'">
+
+  <!-- Box Title Container -->
+<div class="box-title-container">
+    <h3><%= box.TitleChosen %></h3>
+</div>
+  <!-- Hoverable Edit/Delete/Print buttons, visible only when hovered -->
+  <div class="btn-container">
+    <% if (session.user && session.user.username === user.Username) { %>
+      <button class="edit-btn" onclick="event.stopPropagation(); openEditBoxModal(<%= box.BoxID %>, '<%= box.TitleChosen %>', '<%= box.BoxDescription %>')">Edit</button>
+      <button class="delete-btn" onclick="event.stopPropagation(); openDeleteBoxModal(<%= box.BoxID %>, '<%= box.TitleChosen %>')">Delete</button>
+    <% } %>
+    <button class="print-btn" onclick="event.stopPropagation(); printBox(<%= box.BoxID %>)">Print</button>
+  </div>
+
+  <!-- Box Description -->
+  <p><strong>Description:</strong> <%= box.BoxDescription ? box.BoxDescription : 'No description provided.' %></p>
+  
+  <!-- Box Visibility -->
+  <p><strong>Is Public:</strong> <%= box.IsBoxPublic ? 'Yes' : 'No' %></p>
+  
+  <!-- Number of Files -->
+  <p><strong>Number of Files:</strong> <%= box.NrOfFiles %></p>
+
+  <!-- Display QR code if the box is public -->
+  <% if (box.IsBoxPublic && box.qrCodeDataURL) { %>
+    <div class="qr-code-container">
+      <h4>Share this Box:</h4>
+      <img src="<%= box.qrCodeDataURL %>" alt="QR Code for <%= box.TitleChosen %>">
+    </div>
+  <% } %>
+</div>
         <% }); %>
     <% } else { %>
         <p>No boxes found.</p>
@@ -232,7 +228,8 @@
         <h2>Edit Box</h2>
         <form id="editBoxForm" method="POST" action="">
             <label for="newBoxName">Box Name:</label>
-            <input type="text" id="newBoxName" name="newBoxName" placeholder="Enter new box name" required>
+            <input type="text" id="newBoxName" name="newBoxName" placeholder="Enter new box name" required oninput="replaceSpaces(this)">
+
             
             <label for="newBoxDescription">Box Description:</label>
             <textarea id="newBoxDescription" name="newBoxDescription" placeholder="Enter box description (max 4095 characters)" maxlength="4095"></textarea>
@@ -525,6 +522,10 @@ function sortBoxes() {
     window.location.href = `/${username}?sortOrder=${sortOrder}`;
 }
 
+function replaceSpaces(input) {
+        // Replace all spaces with underscores
+        input.value = input.value.replace(/\s+/g, '_');
+    }
 </script>
 
 <style>
@@ -587,14 +588,16 @@ function sortBoxes() {
     background-color: rgba(0, 0, 0, 0.4); 
 }
 
+/* Modal content */
 .modal-content {
-    background-color: #fefefe;
     margin: auto;
     padding: 20px;
     border: 1px solid #888;
     width: 80%;
-    max-width: 400px;
-    border-radius: 10px;
+    max-width: 500px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    position: relative;
 }
 
 .close {
@@ -610,6 +613,109 @@ function sortBoxes() {
     cursor: pointer;
 }
 
+
+
+/* Enhanced Form Input Styling */
+#newLabelStyle {
+    display: block;
+    margin: 15px 0; /* Increase spacing for better layout */
+    padding: 12px 15px; /* More padding for a comfortable feel */
+    border-radius: 12px; /* Softer, rounded corners */
+    border: 2px solid #ddd; /* Subtle border for a cleaner look */
+    background-color: rgba(255, 255, 255, 0.95); /* Light background with slight transparency */
+    font-size: 16px;
+    width: 100%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Soft shadow for depth */
+    transition: border-color 0.3s ease, box-shadow 0.3s ease; /* Smooth transitions */
+    color: #333; /* Darker text for better readability */
+}
+
+/* Submit and Apply buttons */
+.btn-submit, .btn-apply {
+    background-color: #28a745;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 50px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    font-size: 14px;
+    display: inline-block;
+    margin-top: 10px;
+}
+
+.btn-submit:hover, .btn-apply:hover {
+    background-color: #218838;
+}
+
+/* Label Styles Container */
+.label-styles-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: center;
+}
+
+/* Style for each label image */
+.label-style-image {
+    width: 100px;
+    height: 100px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    object-fit: cover;
+}
+
+.label-style-image:hover {
+    transform: scale(1.1); /* Zoom effect on hover */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.label-style-image.selected {
+    border: 3px solid #007bff; /* Highlight selected label */
+}
+
+/* Range input for border slice */
+#borderImageSliceInput {
+    width: 100%;
+    margin: 10px 0;
+}
+
+/* Border Image Repeat select */
+#borderImageRepeatSelect {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: linear-gradient(to right, #a1c4fd, #c2e9fb); /* Light pastel gradient */
+    font-size: 16px;
+}
+
+/* Preview styling */
+.label-style-preview {
+    background: linear-gradient(to right, #a1c4fd, #c2e9fb); /* Light pastel gradient */
+    padding: 15px;
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    text-align: center;
+    margin-top: 15px;
+    height: 120px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 16px;
+    box-sizing: border-box;
+    width: 200px;
+}
+
+
+/* Optional: Style the preview text */
+.label-style-preview p {
+    margin: 0;
+    line-height: 80px; /* Vertically center the text */
+}
 .btn-delete-confirm {
     background-color: #dc3545;
     color: white;
@@ -686,23 +792,108 @@ function sortBoxes() {
     font-weight: bold;
 }
 
-/* Profile Picture Styles */
-.profile-picture-container {
-    text-align: center;
-    margin-bottom: 20px;
-}
-
-.profile-picture {
+/* Profile picture container with hover functionality */
+.profile-picture-wrapper {
+    position: relative;
     width: 150px;
     height: 150px;
-    border-radius: 50%; /* Makes the image circular */
-    object-fit: cover; /* Ensures the image covers the container without stretching */
+    margin: 0 auto;
+}
+
+/* Profile picture styling */
+.profile-picture {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
     border: 2px solid #ddd;
+    cursor: pointer;
 }
 
 .profile-picture:hover {
-    opacity: 0.8;
+    opacity: 0.9; /* Slight opacity change on hover */
+}
+
+/* Hidden profile picture options (Change/Delete) */
+.profile-picture-options {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent black background */
+    color: white;
+    padding: 10px;
+    border-bottom-left-radius: 50%;
+    border-bottom-right-radius: 50%;
+    display: none; /* Hidden by default */
+    text-align: center;
+}
+
+/* Show profile picture options on hover */
+.profile-picture-wrapper:hover .profile-picture-options {
+    display: block;
+}
+
+/* Buttons for changing and deleting profile picture */
+.edit-profile-pic-btn, .delete-profile-pic-btn {
+    background-color: transparent;
+    border: none;
+    color: white;
     cursor: pointer;
+    padding: 5px 10px;
+    font-size: 12px;
+    margin: 5px;
+    transition: color 0.3s ease;
+}
+
+/* Change button */
+.edit-profile-pic-btn:hover {
+    color: #ff9a9e; /* Light pink on hover */
+}
+
+/* Delete button */
+.delete-profile-pic-btn:hover {
+    color: #dc3545; /* Red color on hover */
+}
+
+/* Profile info and description */
+.profile-info {
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* Add hover effect to make the description box look clickable */
+.user-description {
+    background-color: #f9f9f9;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: left;
+    margin-top: 10px;
+    cursor: pointer; /* Show pointer on hover */
+    transition: background-color 0.3s ease; /* Smooth transition for hover effect */
+}
+
+.user-description:hover {
+    background-color: #e9ecef; /* Light grey on hover */
+}
+
+/* Edit and Submit Buttons */
+.edit-btn, .btn-submit, .btn-cancel {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.btn-cancel {
+    background-color: #dc3545;
+}
+
+.btn-submit:hover, .btn-cancel:hover {
+    opacity: 0.9;
 }
 
 /* QR Code Styles */
@@ -741,21 +932,6 @@ function sortBoxes() {
 
 .label-style-image.selected {
     border: 2px solid blue;
-}
-/* Label Style Preview */
-.label-style-preview {
-    width: 200px;
-    height: 100px;
-    margin-top: 10px;
-    padding: 10px;
-    text-align: center;
-    box-sizing: border-box;
-}
-
-/* Optional: Style the preview text */
-.label-style-preview p {
-    margin: 0;
-    line-height: 80px; /* Vertically center the text */
 }
 
 /* Style the slider container */
@@ -810,7 +986,429 @@ function sortBoxes() {
     color: #007bff;
 }
 
+/* Box Card Styling */
+.box-card {
+  background-color: white; /* Fallback */
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  overflow: hidden;
+  position: relative; /* Ensure the btn-container is positioned relative to the box */
+  transition: transform 0.2s ease;
+  cursor: pointer;
+  flex-direction: column;
+  justify-content: space-between; /* Ensure content is spaced out in the box */
+}
 
+/* Cycle through 5 different pastel backgrounds */
+.box-card:nth-child(5n+1) {
+  background: linear-gradient(to right, #a1c4fd, #c2e9fb); /* Light blue to light cyan */
+}
+
+.box-card:nth-child(5n+2) {
+  background: linear-gradient(to right, #fbc2eb, #a6c1ee); /* Soft pink to pastel blue */
+}
+
+.box-card:nth-child(5n+3) {
+  background: linear-gradient(to right, #ffecd2, #fcb69f); /* Soft orange to peach */
+}
+
+.box-card:nth-child(5n+4) {
+  background: linear-gradient(to right, #cfd9df, #e2ebf0); /* Light grey to pale blue */
+}
+
+.box-card:nth-child(5n+5) {
+  background: linear-gradient(to right, #fddb92, #d1fdff); /* Light yellow to light cyan */
+}
+.box-card:nth-child(5n+6) {
+  background: linear-gradient(to right, #b2fefa, #0ed2f7); /* Soft turquoise to bright cyan */
+}
+
+.box-card:nth-child(5n+7) {
+  background: linear-gradient(to right, #f6d365, #fda085); /* Soft yellow to peach */
+}
+
+.box-card:nth-child(5n+8) {
+  background: linear-gradient(to right, #ff9a9e, #fecfef); /* Soft pink to light pink */
+}
+
+.box-card:nth-child(5n+9) {
+  background: linear-gradient(to right, #c3cfe2, #c2e9fb); /* Light lavender to pastel blue */
+}
+
+.box-card:nth-child(5n+10) {
+  background: linear-gradient(to right, #fbc7d4, #9796f0); /* Light pink to soft purple */
+}
+
+
+/* Scale effect on hover */
+.box-card:hover {
+  transform: scale(1.05);
+}
+
+
+
+/* Initially hide buttons, only show on hover */
+.box-card:hover .btn-container {
+  display: block;
+}
+
+/* Button container for edit/delete/print buttons */
+.btn-container {
+  display: none;
+  position: absolute;
+  bottom: 0; /* Align to the bottom of the card */
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 10px;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+/* Prettier button styling */
+.btn-container button {
+  margin: 5px;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 50px; /* Rounded buttons */
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow for buttons */
+}
+
+/* Edit button */
+.edit-btn {
+  background-color: #007bff;
+  color: white;
+}
+
+.edit-btn:hover {
+  background-color: #0056b3;
+  transform: scale(1.05); /* Slight scale effect on hover */
+}
+
+/* Delete button */
+.delete-btn {
+  background-color: #dc3545;
+  color: white;
+}
+
+.delete-btn:hover {
+  background-color: #c82333;
+  transform: scale(1.05); /* Slight scale effect on hover */
+}
+
+/* Print button */
+.print-btn {
+  background-color: #28a745;
+  color: white;
+}
+
+.print-btn:hover {
+  background-color: #218838;
+  transform: scale(1.05); /* Slight scale effect on hover */
+}
+.qr-code-container {
+  text-align: center;
+  margin-top: 10px;
+  padding: 10px;
+  background-color: rgba(255, 255, 255, 0.5); /* Light semi-transparent white background */
+  border-radius: 8px; /* Add some rounding for a smoother effect */
+  display: inline-block; /* Make the container fit the content */
+}
+/* Layout for the profile and create box */
+.profile-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+}
+/* Profile card with pastel background */
+.profile-box-card {
+    background: linear-gradient(to left, #a1c4fd, #c2e9fb); /* Soft yellow to peach */
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    flex: 1;
+    min-width: 300px;
+}
+
+/* Create Box card with a pastel background */
+.create-box-card {
+    background: linear-gradient(to right, #a1c4fd, #c2e9fb); /* Light blue to light cyan */
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    flex: 1;
+    min-width: 300px;
+}
+
+/* Create Box Title */
+.create-box-title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+/* Form Group styling */
+.form-group {
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+/* Input and Select field styling */
+.form-control {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+    margin-top: 5px;
+    box-sizing: border-box;
+    background-color: rgba(255, 255, 255, 0.9); /* Slightly transparent white background */
+    transition: border-color 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #007bff;
+    outline: none;
+}
+
+/* Button to add label style */
+.btn-add-label-style {
+    background-color: #ff9a9e;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 50px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin-right: 10px;
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+
+.btn-add-label-style:hover {
+    background-color: #fa7d82;
+}
+
+/* Submit button styling */
+.btn-submit {
+    background-color: #28a745;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 50px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    font-size: 14px;
+}
+
+.btn-submit:hover {
+    background-color: #218838;
+}
+
+/* Profile container layout */
+.profile-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+}
+
+/* Profile picture styling */
+.profile-picture-container {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.profile-picture {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #ddd;
+}
+
+.profile-picture:hover {
+    opacity: 0.8;
+    cursor: pointer;
+}
+
+/* Profile info and greeting styling */
+.profile-info {
+    text-align: center;
+}
+
+.profile-info h2 {
+    margin-bottom: 10px;
+    font-size: 24px;
+    color: #333;
+}
+
+.profile-info .greeting {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+/* User description */
+.user-description {
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    border-radius: 8px;
+    text-align: left;
+}
+
+/* Form styling */
+.create-box-form .form-group {
+    margin-bottom: 15px;
+}
+
+.create-box-form label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.create-box-form input, 
+.create-box-form select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+/* Form container styling */
+.upload-label-style-form {
+    background: linear-gradient(to right, #a1c4fd, #c2e9fb); /* Light pastel gradient */
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Soft shadow for depth */
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* Label styling */
+.upload-label {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+    display: block;
+    margin-bottom: 10px;
+}
+
+/* Input file field */
+.file-input {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 2px solid #ddd;
+    background-color: rgba(255, 255, 255, 0.9);
+    font-size: 16px;
+    margin-bottom: 15px;
+    cursor: pointer;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    color: #333;
+}
+
+.file-input:hover, .file-input:focus {
+    border-color: #007bff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    outline: none;
+}
+
+/* Submit button */
+.btn-submit {
+    background-color: #28a745;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 50px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    font-size: 14px;
+}
+
+.btn-submit:hover {
+    background-color: #218838;
+}
+
+/* Upload note styling */
+.upload-note {
+    font-size: 14px;
+    color: #666;
+    margin-top: 10px;
+}
+
+/* Sort form container with unique ID - positioned above boxes */
+#sortFormUnique {
+    display: block;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px 20px;
+    border-radius: 12px;
+    border: 2px solid #ddd;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    width: 20%; /* Your desired width */
+    margin-left: 30px; /* Adds space between the form and the left wall */
+    text-align: center; /* Center align the form content */
+}
+
+/* Label styling specific to this form */
+#sortFormUnique label {
+    font-weight: bold;
+    font-size: 14px;
+    color: #333;
+    margin-right: 10px;
+}
+
+/* Select dropdown styling specific to this form */
+#sortOrderUnique {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background-color: #f9f9f9;
+    font-size: 14px;
+    color: #333;
+    transition: border-color 0.3s ease;
+}
+
+/* Hover and focus effects for select */
+#sortOrderUnique:hover, 
+#sortOrderUnique:focus {
+    border-color: #007bff;
+    outline: none;
+    background-color: #fff;
+}
+
+/* Box Title Container Styling */
+.box-title-container {
+    display: inline-block; /* Ensure it wraps around the text properly */
+    background-color: rgba(255, 255, 255, 0.8); /* Light semi-transparent background */
+    padding: 8px 15px; /* Add subtle padding */
+    border-radius: 8px; /* Rounded corners */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Very light shadow for depth */
+    margin-top: 10px;
+    text-align: center;
+}
+
+/* Title Text Styling */
+.box-title-container h3 {
+    margin: 0; /* Remove default margin */
+    font-size: 18px; /* Adjust font size for better readability */
+    color: #333; /* Subtle dark color for the title */
+    font-weight: bold; /* Make the title stand out */
+}
 
 </style>
 

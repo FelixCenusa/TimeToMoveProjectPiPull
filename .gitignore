@@ -4,6 +4,7 @@
 !uploads/labelStyles
 /uploads/profiles/*
 /uploads/labelStyles/*
+!uploads/profiles/*.svg
 
 # !uploads/profiles/*.jpg
 # !uploads/profiles/*.png

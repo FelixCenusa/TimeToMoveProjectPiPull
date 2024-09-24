@@ -104,9 +104,16 @@
                                     Your browser does not support the audio element.
                                 </audio>
                             </div>
+                        <% } else if (['mp4', 'webm', 'ogg'].includes(content.MediaType)) { %>
+                            <div class="video-player-box">
+                            <video controls class="small-video">
+                                <source src="/uploads/<%= content.MediaPath %>" type="video/<%= content.MediaType %>">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
                         <% } else { %>
-                            <!-- Display Download Link for Other File Types -->
-                            <p><a href="/uploads/<%= content.MediaPath %>" download>Download <%= content.MediaType %> file</a></p>
+                            <!-- Display Download Link for Other File Types and say "Download mediaName"-->
+                            <p><a href="/uploads/<%= content.MediaPath %>" download>Download file <%= fileName %> of type <%= content.MediaType %></a></p>
                         <% } %>
 
                         <!-- Add the download button for each file -->
@@ -160,3 +167,75 @@
         </script>
     <% } %>
 <% } %>
+
+<style>
+
+    /* Box Card Styling */
+.box-card {
+    background-color: white; /* Fallback */
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    overflow: hidden;
+    position: relative;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+    cursor: pointer;
+    margin-bottom: 20px;
+}
+
+/* Cycle through 5 different pastel backgrounds for box-cards */
+.box-card:nth-child(5n+1) {
+    background: linear-gradient(to right, #ff9a9e, #fecfef); /* Light pink gradient */
+}
+
+.box-card:nth-child(5n+2) {
+    background: linear-gradient(to right, #a1c4fd, #c2e9fb); /* Blue gradient */
+}
+
+.box-card:nth-child(5n+3) {
+    background: linear-gradient(to right, #fbc2eb, #a6c1ee); /* Pink to blue gradient */
+}
+
+.box-card:nth-child(5n+4) {
+    background: linear-gradient(to right, #ffecd2, #fcb69f); /* Orange gradient */
+}
+
+.box-card:nth-child(5n+5) {
+    background: linear-gradient(to right, #cfd9df, #e2ebf0); /* Gray to blue gradient */
+}
+
+/* Hover effect */
+.box-card:hover {
+    transform: scale(1.05);
+    background-color: #f1f1f1;
+}
+
+.delete-btn {
+    background-color: #dc3545;
+}
+
+.btn-container button:hover {
+    opacity: 0.9;
+}
+/* Video player container styling */
+.video-player-box {
+    max-width: 100%; /* Ensure the video fits within the card */
+    text-align: center;
+}
+
+/* Small video size */
+.small-video {
+    width: 250px; /* Set the initial small width */
+    height: auto; /* Keep aspect ratio */
+    max-width: 100%; /* Make sure the video doesn't overflow the container */
+}
+
+/* Make the video player responsive */
+.small-video:fullscreen {
+    width: 100%; /* Fullscreen width */
+    height: 100%; /* Fullscreen height */
+}
+
+
+</style>

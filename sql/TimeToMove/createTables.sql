@@ -7,6 +7,8 @@ DROP TABLE IF EXISTS Visited;
 DROP TABLE IF EXISTS Boxes;
 DROP TABLE IF EXISTS Users;
 DROP TABLE IF EXISTS TempUsers;
+DROP TABLE IF EXISTS PasswordResets;
+
 
 CREATE TABLE TempUsers (
     TempUserID INT AUTO_INCREMENT PRIMARY KEY,
@@ -50,11 +52,11 @@ CREATE TABLE BoxMedia (
     FOREIGN KEY (BoxID) REFERENCES Boxes(BoxID)
 );
 
-CREATE TABLE Visited (
-    VisitID INT AUTO_INCREMENT PRIMARY KEY,
-    UserID INT,
-    VisitedBy VARCHAR(255), -- Stores hashed IP for guest users and Username if logged in and not in stealth mode
-    FOREIGN KEY (UserID) REFERENCES Users(ID)
+CREATE TABLE Views (
+    VisitedID INT AUTO_INCREMENT PRIMARY KEY,
+    PageViewed VARCHAR(255) NOT NULL,
+    TotalCounter INT DEFAULT 1,
+    HashedUserIP VARCHAR(255) NOT NULL
 );
 
 CREATE TABLE Likes (
@@ -63,4 +65,12 @@ CREATE TABLE Likes (
     BoxID INT,
     FOREIGN KEY (UserID) REFERENCES Users(ID),
     FOREIGN KEY (BoxID) REFERENCES Boxes(BoxID)
+);
+
+CREATE TABLE PasswordResets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    Email VARCHAR(255) NOT NULL,
+    Token VARCHAR(64) NOT NULL,
+    ExpiresAt DATETIME NOT NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

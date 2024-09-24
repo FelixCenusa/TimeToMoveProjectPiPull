@@ -7,24 +7,79 @@ const router = express.Router();
 const fs = require('fs');
 const archiver = require('archiver');
 const QRCode = require('qrcode'); // Add this line
+const { createCanvas } = require('canvas');
+// const ffmpeg = require('fluent-ffmpeg');
 
-router.get("/create_user", (req, res) => {
-    return res.render('TimeToMove/register.ejs',{ session: req.session })
+
+// Route for Terms and Conditions
+router.get('/terms', async (req, res) => {
+    // Record the page view
+    await TimeToMove.recordPageView(req, '/terms');
+    // Retrieve the view counts
+    const viewCounts = await TimeToMove.getPageViewCounts('/terms');
+    // Render the page and pass the view counts
+    // async         viewCounts
+    res.render('TimeToMove/terms',{ session: req.session, viewCounts });
+});
+
+// Route for Contact Us
+router.get('/contact', async(req, res) => {
+    // Record the page view
+    await TimeToMove.recordPageView(req, '/contact');
+    // Retrieve the view counts
+    const viewCounts = await TimeToMove.getPageViewCounts('/contact');
+    // Render the page and pass the view counts
+    // async         viewCounts
+    res.render('TimeToMove/contact',{ session: req.session,viewCounts });
+});
+
+// Route to handle Contact form submission
+router.post('/submit_contact', async (req, res) => {
+    const { name, email, message } = req.body;
+
+    // Send email using the email service
+    const emailSent = await TimeToMove.sendEmail(name, email, message);
+
+    if (emailSent) {
+        // Return JSON response for success
+        res.json({ success: true, message: 'Email sent successfully' });
+    } else {
+        // Return JSON response for failure
+        res.status(500).json({ success: false, message: 'Failed to send email' });
+    }
+});
+
+
+router.get("/create_user", async (req, res) => {
+    // Record the page view
+    await TimeToMove.recordPageView(req, '/create_user');
+    // Retrieve the view counts
+    const viewCounts = await TimeToMove.getPageViewCounts('/create_user');
+    // Render the page and pass the view counts
+    // async         viewCounts
+    return res.render('TimeToMove/register.ejs',{ session: req.session,viewCounts })
 });
 
 router.post('/create_user', async (req, res) => {
     const { username, email, password, isPublic } = req.body;
+    let data = {};
+    try {
+        data.lastUpdated = fs.readFileSync(path.join(__dirname, '..', 'lastUpdated.md'), 'utf8');
+    } catch (error) {
+        console.error('Error reading lastUpdated.md:', error);
+        data.lastUpdated = 'Error loading last updated date.';
+    }
     
     try {
         // Call the createUser function to generate the token and send email
-        const result = await TimeToMove.createUser(username, email, password, isPublic === 'true');
+        const result = await TimeToMove.createUser(username, email, password);
 
         if (result.success) {
             // Redirect the user to the /verify route after email is sent
             return res.redirect('/verify');
         } else {
             // Handle error (e.g., username or email already exists)
-            return res.render('TimeToMove/index.ejs', { errorMessage: result.message, session: req.session });
+            return res.render('TimeToMove/register.ejs', { errorMessage: result.message, session: req.session, data });
         }
     } catch (error) {
         console.error('Error during registration:', error);
@@ -32,7 +87,7 @@ router.post('/create_user', async (req, res) => {
     }
 });
 
-// router.get("/create_fake_user", (req, res) => {
+//  
 //     return res.render('TimeToMove/fakeRegister.ejs',{ session: req.session })
 // });
 
@@ -81,10 +136,16 @@ router.post('/create_user', async (req, res) => {
 //     }
 // });
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     const isLoggedIn = !!req.session.user;  // Check if the user is logged in
     // get the contents from wthe lastUpdated.md file and send the data to the index.ejs
     let data = {};
+    // Record the page view
+    await TimeToMove.recordPageView(req, '/');
+    // Retrieve the view counts
+    const viewCounts = await TimeToMove.getPageViewCounts('/');
+    // Render the page and pass the view counts
+    // async         viewCounts
     try {
         data.lastUpdated = fs.readFileSync(path.join(__dirname, '..', 'lastUpdated.md'), 'utf8');
     } catch (error) {
@@ -95,48 +156,64 @@ router.get('/', (req, res) => {
 
     if (isLoggedIn) {
         // If the user is logged in, show the dashboard or custom content
-        res.render('TimeToMove/index.ejs', { user: req.session.user,session: req.session, data });
+        res.render('TimeToMove/index.ejs', { user: req.session.user,session: req.session, data, viewCounts });
     } else {
         // If not logged in, show the homepage or a general landing page
-        res.render('TimeToMove/index.ejs',{ user: req.session.user,session: req.session, data });
+        res.render('TimeToMove/index.ejs',{ user: req.session.user,session: req.session, data, viewCounts });
     }
 });
 
 
-router.get('/verify', (req, res) => {
-    // Render the verify page where the user will input the token
-    res.render('TimeToMove/verify.ejs',{ user: req.session.user,session: req.session });  // Render a view for token input
-});
-
-// Route to handle token verification
-router.post('/verify', async (req, res) => {
-    const { token } = req.body;
-
-    try {
-        // Call the verify function in TimeToMove.js
-        const result = await TimeToMove.verify(token);
-
+// Route to handle verification via URL (with token in query params)
+router.get('/verify', async (req, res) => {
+    const token = req.query.token; // Get the token from the query string
+    // Record the page view
+    await TimeToMove.recordPageView(req, '/verify');
+    // Retrieve the view counts
+    const viewCounts = await TimeToMove.getPageViewCounts('/verify');
+    // Render the page and pass the view counts
+    // async         viewCounts
+    if (token) {
+        const result = await TimeToMove.verify(token); // Automatically verify the token
         if (result.success) {
+            // If successful, redirect to the login page
             return res.redirect('/login');
         } else {
-            //res.status(400).send(result.message);  // Send error message
+            // If failed, redirect to the register page (/create_user)
             return res.redirect('/create_user');
         }
-    } catch (error) {
-        console.error('Error during verification:', error);
-        res.status(500).send('Server error during verification.');
+    } else {
+        // Render the verify page if no token is provided
+        return res.render('TimeToMove/verify.ejs', { user: req.session.user, session: req.session, viewCounts });
+    }
+});
+
+// Route to handle verification form submission (POST)
+router.post('/verify', async (req, res) => {
+    const { token } = req.body; // Get the token from the form
+    const result = await TimeToMove.verify(token);
+    
+    if (result.success) {
+        return res.json({ success: true, message: result.message });
+    } else {
+        return res.json({ success: false, message: result.message });
     }
 });
 
 
 
-router.get("/forgot_password", (req, res) => {
-    res.send("Forgot password page (coming soon)");  // Placeholder page
-});
+
+
 
 // Display the login form
-router.get('/login', (req, res) => {
-    res.render('TimeToMove/login.ejs', { errorMessage: "" ,session: req.session});
+router.get('/login', async (req, res) => {
+    // Record the page view
+    await TimeToMove.recordPageView(req, '/login');
+    // Retrieve the view counts
+    const viewCounts = await TimeToMove.getPageViewCounts('/login');
+    // Render the page and pass the view counts
+    // async         viewCounts
+    res.render('TimeToMove/login.ejs', { errorMessage: "" ,session: req.session,viewCounts});
 });
 
 router.post('/login', async (req, res) => {
@@ -164,8 +241,81 @@ router.post('/login', async (req, res) => {
 });
 
 
+// Display the forgot password form
+router.get('/forgotPassword', async (req, res) => {
+    // Record the page view
+    await TimeToMove.recordPageView(req, '/forgotPassword');
+    // Retrieve the view counts
+    const viewCounts = await TimeToMove.getPageViewCounts('/forgotPassword');
+    // Render the page and pass the view counts
+    // async         viewCounts
+    res.render('TimeToMove/forgotPassword.ejs', { session: req.session,viewCounts });
+});
+
+// Handle forgot password form submission
+router.post('/forgotPassword', async (req, res) => {
+    const { email } = req.body;
+    try {
+        // Check if the email exists and generate a reset token along with the username
+        const result = await TimeToMove.generatePasswordResetToken(email);
+
+        if (result.success) {
+            // Send an email with the password reset link, including the username
+            await TimeToMove.sendResetPasswordEmail(email, result.token, result.username);
+
+            // Redirect to the resetPasswordSent page with a success message
+            return res.redirect(`/resetPasswordSent?message=Password reset link has been sent to your email.`);
+        } else {
+            return res.render('TimeToMove/forgotPassword.ejs', { errorMessage: result.message, session: req.session });
+        }
+    } catch (error) {
+        console.error('Error during forgot password process:', error);
+        return res.status(500).send('Error during password reset.');
+    }
+});
 
 
+// Route to display the success message after sending reset password email
+router.get('/resetPasswordSent', async (req, res) => {
+    // Record the page view
+    await TimeToMove.recordPageView(req, '/resetPasswordSent');
+    // Retrieve the view counts
+    const viewCounts = await TimeToMove.getPageViewCounts('/resetPasswordSent');
+    // Render the page and pass the view counts
+    // async         viewCounts
+    const message = req.query.message;  // Get the message from the query string
+    res.render('TimeToMove/resetPasswordSent.ejs', { message, session: req.session, viewCounts });
+});
+
+
+// Display the reset password form
+router.get('/resetPassword', async (req, res) => {
+    // Record the page view
+    await TimeToMove.recordPageView(req, '/resetPassword');
+    // Retrieve the view counts
+    const viewCounts = await TimeToMove.getPageViewCounts('/resetPassword');
+    // Render the page and pass the view counts
+    // async         viewCounts
+    const token = req.query.token; // Get the token from the query string
+    res.render('TimeToMove/resetPassword.ejs', { token, session: req.session, viewCounts });
+});
+
+// Handle reset password form submission
+router.post('/resetPassword', async (req, res) => {
+    const { token, password } = req.body;
+
+    try {
+        const result = await TimeToMove.resetPassword(token, password);
+        if (result.success) {
+            return res.redirect('/login');
+        } else {
+            return res.render('TimeToMove/resetPassword.ejs', { errorMessage: result.message, session: req.session });
+        }
+    } catch (error) {
+        console.error('Error during password reset:', error);
+        res.status(500).send('Error during password reset.');
+    }
+});
 router.get('/logout', (req, res) => {
     req.session.destroy(err => {
         if (err) {
@@ -176,74 +326,7 @@ router.get('/logout', (req, res) => {
 });
 
 
-router.get('/account', async (req, res) => {
-    // Check if the user is logged in
-    if (!req.session.user) {
-        return res.redirect('/login');
-    }
 
-    const userId = req.session.user.id;  // Get the userID from the session
-    console.log('Session user ID:', userId);  // Check if userId is correctly stored
-
-    try {
-        // Fetch all the boxes created by the logged-in user
-        const userBoxes = await TimeToMove.getUserBoxes(userId);
-
-        // Log the fetched boxes for debugging
-        console.log('Fetched user boxes:', userBoxes);
-
-        // Render the account page, passing the user's boxes
-        res.render('TimeToMove/account.ejs', { user: req.session.user, boxes: userBoxes,session: req.session });
-    } catch (error) {
-        console.error('Error fetching user boxes:', error);
-        res.status(500).send('Error loading account page.');
-    }
-});
-
-
-
-
-
-
-// Add route to fetch all users and render the homepage
-router.get("/all_users", async (req, res) => {
-    console.log("index");
-    let data = {};
-
-    // Fetch all users from the database using the getAllUsers function
-    try {
-        data.users = await TimeToMove.getAllUsers();  // Assume getAllUsers() fetches all users
-    } catch (error) {
-        console.error('Error fetching users:', error);
-        data.users = [];
-    }
-
-    res.render("TimeToMove/all_users.ejs", { data,user: req.session ,session: req.session});
-});
-
-// router.post('/create_box', async (req, res) => {
-//     // Check if the user is logged in
-//     if (!req.session.user) {
-//         return res.redirect('/login');
-//     }
-//     const { label, isPublic } = req.body;
-//     const userId = req.session.user.id;  // Get the user ID from the session
-//     console.log("label", label);
-//     console.log("isPublic", isPublic);
-//     console.log("userId", userId);
-//     console.log("req.session.user", req.session.user);
-
-//     try {
-//         // Call the function to create a new box
-//         await TimeToMove.createBox(userId, isPublic === 'true', label);
-//         // After creating the box, redirect back to the account page
-//         res.redirect(`/${req.session.user.username}`);
-//     } catch (error) {
-//         console.error('Error creating box:', error);
-//         res.status(500).send('Error creating box.');
-//     }
-// });
-// Route to handle box creation
 router.post('/create_box', async (req, res) => {
     // Check if the user is logged in
     if (!req.session.user) {
@@ -323,21 +406,16 @@ router.post('/upload_label_style', function (req, res) {
 
 
 
-
-router.get("/test", (req, res) => {
-    res.render("TimeToMove/test.ejs");  // Your existing about page
-});
-
-router.get("/about", (req, res) => {
-    res.render("TimeToMove/about.ejs");  // Your existing about page
-});
-
-
 router.get('/leaderboard', async (req, res) => { 
     try {
         // Fetch the leaderboard data and statistics from TimeToMove.js
         const { leaderboard, totalFilesUploaded, totalMediaSize, totalUsers } = await TimeToMove.getLeaderboardStats();
-
+            // Record the page view
+        await TimeToMove.recordPageView(req, '/leaderboard');
+        // Retrieve the view counts
+        const viewCounts = await TimeToMove.getPageViewCounts('/leaderboard');
+        // Render the page and pass the view counts
+        // async         viewCounts
         // Render the leaderboard page with the fetched stats
         res.render('TimeToMove/leaderboard', { 
             user: req.session.user,
@@ -345,7 +423,8 @@ router.get('/leaderboard', async (req, res) => {
             leaderboard,
             totalFilesUploaded,
             totalMediaSize,
-            totalUsers
+            totalUsers,
+            viewCounts
         });
     } catch (error) {
         console.error('Error loading leaderboard:', error);
@@ -355,63 +434,18 @@ router.get('/leaderboard', async (req, res) => {
 
 
 
-router.get("/welcome", (req, res) => {
-    res.render("TimeToMove/welcome.ejs");  // Your existing about page
-});
-
-
-// // Update the route handler for '/:username'
-// router.get('/:username', async (req, res) => {
-//     const { username } = req.params;
-//     const session = req.session;
-
-//     try {
-//         // Fetch the user by username
-//         const user = await TimeToMove.getUserByUsername(username);
-
-//         if (!user) {
-//             console.log('User not found:', username);
-//             return res.status(404).send('User not found');
-//         }
-
-//         // Fetch the boxes created by the user
-//         const userBoxes = await TimeToMove.getUserBoxes(user.ID);
-
-//         // Generate QR codes for public boxes
-//         for (const box of userBoxes) {
-//             if (box.IsBoxPublic) {
-//                 // Generate the box URL
-//                 const boxURL = `${req.protocol}://${req.get('host')}/${username}/${box.TitleChosen}`;
-
-//                 // Generate the QR code data URL
-//                 const qrCodeDataURL = await QRCode.toDataURL(boxURL);
-
-//                 // Add the qrCodeDataURL to the box object
-//                 box.qrCodeDataURL = qrCodeDataURL;
-//             } else {
-//                 // Box is not public, do not generate QR code
-//                 box.qrCodeDataURL = null;
-//             }
-//         }
-
-//         // Render the user's profile page
-//         res.render('TimeToMove/profile.ejs', {
-//             user,
-//             boxes: userBoxes,
-//             isOwner: session.user && session.user.username === user.Username,
-//             session: session
-//         });
-//     } catch (error) {
-//         console.error('Error loading user profile:', error);
-//         res.status(500).send('Error loading profile.');
-//     }
-// });
 
 router.get('/:username', async (req, res) => {
     const { username } = req.params;
     const session = req.session;
     const sortOrder = req.query.sortOrder || 'recent';  // Default to 'recent' if no sort order is provided
-
+    
+    await TimeToMove.recordPageView(req, `${username}`);
+     
+    // Retrieve the view counts
+    const viewCounts = await TimeToMove.getPageViewCounts(`${username}`);
+    // Render the page and pass the view counts
+    // async         viewCounts
     let sortQuery;
     if (sortOrder === 'mostContent') {
         sortQuery = 'ORDER BY NrOfFiles DESC';  // Sort by the number of files in each box
@@ -435,7 +469,21 @@ router.get('/:username', async (req, res) => {
         for (const box of userBoxes) {
             if (box.IsBoxPublic) {
                 const boxURL = `${req.protocol}://${req.get('host')}/${username}/${box.TitleChosen}`;
-                const qrCodeDataURL = await QRCode.toDataURL(boxURL);
+        
+                // Create a canvas to draw the QR code
+                const canvas = createCanvas(200, 200); // Adjust size as needed
+        
+                // Generate QR code on the canvas
+                await QRCode.toCanvas(canvas, boxURL, {
+                    color: {
+                        dark: '#000000', // QR code color (black)
+                        light: '#00000000' // Transparent background (RGBA)
+                    }
+                });
+        
+                // Convert the canvas to a Data URL
+                const qrCodeDataURL = canvas.toDataURL();
+        
                 box.qrCodeDataURL = qrCodeDataURL;
             } else {
                 box.qrCodeDataURL = null;
@@ -457,7 +505,8 @@ router.get('/:username', async (req, res) => {
             labelStyles: labelStyles,
             isOwner: session.user && session.user.username === user.Username,
             session: session,
-            sortOrder // Pass the current sort order to the template
+            sortOrder, // Pass the current sort order to the template,
+            viewCounts
         });
     } catch (error) {
         console.error('Error loading user profile:', error);
@@ -573,7 +622,12 @@ router.get('/:username/:boxName', async (req, res) => {
     console.log(req.params);
     console.log(req.params.username);
     console.log("IDK");
-
+    
+    await TimeToMove.recordPageView(req, `${username}${boxName}`);
+    // Retrieve the view counts
+    const viewCounts = await TimeToMove.getPageViewCounts(`${username}${boxName}`);
+    // Render the page and pass the view counts
+    // async         viewCounts
     // if boxName is a number, it's a boxID
     // if boxName is a string, it's a boxName
     // Check if boxName is a number (indicating it's a boxID)
@@ -627,7 +681,8 @@ if (!isNaN(boxName)) {
                 user,
                 box: null, // Pass null when box is not found
                 contents: [],
-                session: req.session
+                session: req.session,
+                viewCounts
             });
         }
 
@@ -655,7 +710,8 @@ if (!isNaN(boxName)) {
             contents: boxContents,
             isOwner,
             totalSize,
-            session: req.session
+            session: req.session,
+            viewCounts
         });
     } catch (error) {
         console.error('Error loading box contents:', error);
@@ -700,14 +756,15 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 } // Optional: Limit file size to 10MB
+    limits: { fileSize: 100 * 1024 * 1024 } // Optional: Limit file size to 10MB
 });
 
 // POST route for handling file uploads
 router.post('/:username/:boxName/upload', upload.fields([
     { name: 'imageFile', maxCount: 1 },
     { name: 'textFile', maxCount: 1 },
-    { name: 'audioFile', maxCount: 1 }
+    { name: 'audioFile', maxCount: 1 },
+    { name: 'videoFile', maxCount: 1 }  // New field for video file upload
 ]), async (req, res) => {
     const { username, boxName } = req.params;
     let gotThisFar = 0;
@@ -739,12 +796,38 @@ router.post('/:username/:boxName/upload', upload.fields([
             file = req.files.textFile[0];
         } else if (req.files.audioFile) {
             file = req.files.audioFile[0];
-        }
-        console.log("gotThisFar", gotThisFar++);
-        let numberHere = 123
-        let stringHere = numberHere.toString();
-        console.log("stringHere", stringHere);
+        } else if (req.files.videoFile) {  // Handle video files
+            file = req.files.videoFile[0];
+        //     const maxSize = 10 * 1024 * 1024;  // Maximum file size in bytes (e.g., 50MB)
 
+        //     if (file.size > maxSize) {
+        //         const outputFilePath = path.join(__dirname, '..', 'uploads', username, `resized_${file.originalname}`);
+
+        //         // Resize the video if it's too large
+        //         ffmpeg(file.path)
+        //             .size('480x320')  // Example resolution, can be adjusted
+        //             .save(outputFilePath)
+        //             .on('end', async () => {
+        //                 console.log('Video resized successfully.');
+
+        //                 // Insert resized video into the database
+        //                 const mediaPath = path.join(username, `resized_${file.originalname}`);
+        //                 await TimeToMove.insertMediaIntoBox(boxID.toString(), mediaPath, path.extname(outputFilePath).slice(1));
+
+        //                 // Redirect back to the box page after upload
+        //                 res.redirect(`/${username}/${boxName}`);
+        //             })
+        //             .on('error', (err) => {
+        //                 console.error('Error resizing video:', err);
+        //                 res.status(500).send('Error resizing video.');
+        //             });
+
+        //         return;  // Stop further processing until the resizing completes
+        //     }
+         }
+        console.log("gotThisFar", gotThisFar++);
+        
+        
         // Construct media path using boxID instead of boxName
         const mediaPath = path.join(username, boxID.toString(), file.originalname);
         console.log("gotThisFar", gotThisFar++);

@@ -21,7 +21,7 @@ const transporter = nodeMailer.createTransport({
 
 // Function to send verification email
 async function sendVerificationEmail(toEmail, token) {
-    const verificationLink = `http://localhost:1337/verify-email?token=${token}`;
+    const verificationLink = `http://felixcenusa.com/verify?token=${token}`; // Modify the link to pass the token directly
 
     const mailOptions = {
         from: process.env.EMAIL_USER,  // Sender's email address from .env
@@ -31,8 +31,8 @@ async function sendVerificationEmail(toEmail, token) {
                <p>Click the link below to verify your email:</p>
                <a href="${verificationLink}">Verify Email</a>
                <p>The link is valid for 15 minutes.</p>
-               <p>Or copy and paste the following link into the TimeToMove website:</p>
-                <p>${token}</p>
+               <p>Or copy and paste the following digits into the TimeToMove website:</p>
+               <h1>${token}</h1>
                <p>If you didn't request this email, you can safely ignore it.</p>`
     };
 
@@ -44,7 +44,110 @@ async function sendVerificationEmail(toEmail, token) {
     }
 }
 
+// Create a function to send emails
+async function sendEmail(name, email, message){
+    try {
+        // Email content
+        let mailOptions = {
+            from: `"${name}" <${email}>`, // Sender name and email
+            to: 'felixcenusa@gmail.com', // The email address to send to
+            subject: 'TimeToMove Contact Me Please', // Email subject
+            text: `You have a new message from ${name} (${email}):\n\n${message}`, // Email body
+        };
 
+        // Send the email
+        let info = await transporter.sendMail(mailOptions);
+        console.log('Message sent: %s', info.messageId);
+        return true;
+    } catch (error) {
+        console.error('Error sending email:', error);
+        return false;
+    }
+};
+
+
+// Function to generate a password reset token and store it
+async function generatePasswordResetToken(email) {
+    const db = await mysql.createConnection(config);
+
+    // Check if the email exists in the database and get the associated username
+    const checkEmailSql = `SELECT * FROM Users WHERE Email = ?`;
+    const users = await db.query(checkEmailSql, [email]);
+
+    if (users.length === 0) {
+        return { success: false, message: 'Email not found.' };
+    }
+
+    const username = users[0].Username;
+
+    // Generate a reset token
+    const token = crypto.randomBytes(32).toString('hex');
+
+    // Store the token in the database (with an expiration time, e.g., 1 hour)
+    const expireTime = new Date(Date.now() + 3600000); // 1 hour from now
+    const sql = `INSERT INTO PasswordResets (Email, Token, ExpiresAt) VALUES (?, ?, ?)`;
+    await db.query(sql, [email, token, expireTime]);
+
+    return { success: true, token, username };
+}
+
+// Function to send the reset password email
+async function sendResetPasswordEmail(toEmail, token, username) {
+    const resetLink = `http://felixcenusa.com/resetPassword?token=${token}`;
+
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: toEmail,
+        subject: 'Password Reset for TimeToMove',
+        html: `<h2>Password Reset for user ${username}</h2>
+               <p>Click the link below to reset your password:</p>
+               <h1><a href="${resetLink}">Reset Password</a></h1>
+               <p>The link is valid for 1 hour.</p>`
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log('Password reset email sent to:', toEmail);
+    } catch (error) {
+        console.error('Error sending password reset email:', error);
+    }
+}
+
+async function resetPassword(token, newPassword) {
+    const db = await mysql.createConnection(config);
+
+    try {
+        // Check if the token is valid and not expired
+        const sql = `SELECT * FROM PasswordResets WHERE Token = ? AND ExpiresAt > NOW()`;
+        const resetRequests = await db.query(sql, [token]);
+
+        if (resetRequests.length === 0) {
+            return { success: false, message: 'Invalid or expired token.' };
+        }
+
+        const email = resetRequests[0].Email;
+
+        // Hash the new password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        // Update the user's password
+        const updatePasswordSql = `UPDATE Users SET PasswordHash = ? WHERE Email = ?`;
+        await db.query(updatePasswordSql, [hashedPassword, email]);
+
+        // Delete the reset token after successful reset
+        const deleteTokenSql = `DELETE FROM PasswordResets WHERE Token = ?`;
+        await db.query(deleteTokenSql, [token]);
+
+        return { success: true, message: 'Password has been reset successfully.' };
+
+    } catch (error) {
+        console.error('Error resetting password:', error);
+        return { success: false, message: 'Error resetting password.' };
+    } finally {
+        await db.end();
+    }
+}
 
 
 // Function to validate password strength
@@ -62,9 +165,10 @@ function validatePassword(password) {
 }
 
 // Enhanced createUser function
-async function createUser(username, email, password, isPublic) {
+async function createUser(username, email, password) {
     const db = await mysql.createConnection(config);
-
+    // Generate a unique 9-digit verification token
+    const token = Math.floor(100000000 + Math.random() * 900000000).toString();
     try {
         const restrictedUsernames = ['profiles', 'about', 'login', 'register', 'leaderboard', 'labelStyles'];
         if (restrictedUsernames.includes(username.toLowerCase())) {
@@ -122,13 +226,13 @@ async function createUser(username, email, password, isPublic) {
         const hashedPassword = await bcrypt.hash(password, salt);
 
 
-        // Generate a unique verification token
-        const token = crypto.randomBytes(32).toString('hex');
+        // // Generate a unique verification token
+        // const token = crypto.randomBytes(32).toString('hex');
 
         // Insert the user into the TempUsers table with the verification token
-        const sql = `INSERT INTO TempUsers (Username, Email, PasswordHash, IsPublic, VerificationToken)
-                     VALUES (?, ?, ?, ?, ?)`;
-        await db.query(sql, [username, email, hashedPassword, isPublic, token]);
+        const sql = `INSERT INTO TempUsers (Username, Email, PasswordHash, VerificationToken)
+                     VALUES (?, ?, ?, ?)`;
+        await db.query(sql, [username, email, hashedPassword, token]);
 
         // Send verification email
         await sendVerificationEmail(email, token);
@@ -170,8 +274,11 @@ async function verify(token) {
         const now = new Date();
         const createdAt = new Date(tempUser.CreatedAt);
         const tokenAge = (now - createdAt) / (1000 * 60);  // Time difference in minutes
+        console.log("now", now)
+        console.log("createdAt", createdAt)
+        console.log("tokenAge", tokenAge)
 
-        if (tokenAge > 15) {
+        if (tokenAge > 75) {
             // Delete the expired token
             await db.query(`DELETE FROM TempUsers WHERE VerificationToken = ?`, [token]);
             return { success: false, message: 'Token has expired. Please register again.' };
@@ -183,9 +290,9 @@ async function verify(token) {
         console.log('Expired temp users cleaned up.');
 
         // Move the user from TempUsers to Users table  // add salt
-        const insertSql = `INSERT INTO Users (Username, Email, PasswordHash, IsPublic)
-                           VALUES (?, ?, ?, ?)`;
-        await db.query(insertSql, [tempUser.Username, tempUser.Email, tempUser.PasswordHash, tempUser.IsPublic]);
+        const insertSql = `INSERT INTO Users (Username, Email, PasswordHash)
+                           VALUES (?, ?, ?)`;
+        await db.query(insertSql, [tempUser.Username, tempUser.Email, tempUser.PasswordHash]);
 
         // Delete the user from TempUsers after verification
         await db.query(`DELETE FROM TempUsers WHERE VerificationToken = ?`, [token]);
@@ -204,7 +311,7 @@ async function verify(token) {
 
 
 // Enhanced createUser function
-async function createFakeUser(username, email, password, isPublic) {
+async function createFakeUser(username, email, password) {
     console.log("GotThisFar11")
     const db = await mysql.createConnection(config);
     console.log("GotThisFar12")
@@ -315,7 +422,7 @@ async function getAllUsers() {
     const db = await mysql.createConnection(config);
 
     try {
-        const sql = `SELECT Username, Email, IsPublic FROM Users`;  // Adjust the columns as needed
+        const sql = `SELECT Username, Email FROM Users`;  // Adjust the columns as needed
         let res = await db.query(sql);
         // console log all the users
         console.log('All users:', res);
@@ -669,7 +776,6 @@ async function getPublicLeaderboard() {
                SUM(LENGTH(b.TextPath) + LENGTH(b.AudioPath) + LENGTH(b.ImgPath) + LENGTH(b.VideoPath)) AS TotalBoxContentSize
                FROM Users u
         LEFT JOIN Boxes b ON u.ID = b.UserID
-        WHERE u.IsPublic = TRUE
         GROUP BY u.Username
         ORDER BY BoxCount DESC, TotalBoxContentSize DESC
     `;
@@ -1006,6 +1112,63 @@ async function insertFakeData() {
 
 
 
+function hashIP(ip) {
+    return crypto.createHash('sha256').update(ip).digest('hex');
+}
+async function recordPageView(req, pageViewed) {
+    const db = await mysql.createConnection(config);
+    try {
+        const userIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+        const hashedIP = hashIP(userIP);
+
+        const sql = `INSERT INTO Views (PageViewed, HashedUserIP) VALUES (?, ?)`;
+        await db.query(sql, [pageViewed, hashedIP]);
+    } catch (error) {
+        console.error('Error recording page view:', error);
+    } finally {
+        await db.end();
+    }
+}
+
+async function getPageViewCounts(pageViewed) {
+    const db = await mysql.createConnection(config);
+    try {
+        // Get total views for the specific page
+        const totalViewsSql = `SELECT COUNT(*) AS totalViews FROM Views WHERE PageViewed = ?`;
+        const [totalViewsResult] = await db.query(totalViewsSql, [pageViewed]);
+        const totalViews = totalViewsResult.totalViews;
+
+        // Get unique views for the specific page
+        const uniqueViewsSql = `SELECT COUNT(DISTINCT HashedUserIP) AS uniqueViews FROM Views WHERE PageViewed = ?`;
+        const [uniqueViewsResult] = await db.query(uniqueViewsSql, [pageViewed]);
+        const uniqueViews = uniqueViewsResult.uniqueViews;
+
+        // Get total views for the entire website
+        const totalSiteViewsSql = `SELECT COUNT(*) AS totalSiteViews FROM Views`;
+        const [totalSiteViewsResult] = await db.query(totalSiteViewsSql);
+        const totalSiteViews = totalSiteViewsResult.totalSiteViews;
+
+        // Get unique views for the entire website
+        const uniqueSiteViewsSql = `SELECT COUNT(DISTINCT HashedUserIP) AS uniqueSiteViews FROM Views`;
+        const [uniqueSiteViewsResult] = await db.query(uniqueSiteViewsSql);
+        const uniqueSiteViews = uniqueSiteViewsResult.uniqueSiteViews;
+
+        // Return all results
+        return {
+            totalViews,
+            uniqueViews,
+            totalSiteViews,
+            uniqueSiteViews
+        };
+    } catch (error) {
+        console.error('Error fetching page view counts:', error);
+        return null;
+    } finally {
+        await db.end();
+    }
+}
+
+
 
 
 module.exports = {
@@ -1031,6 +1194,12 @@ module.exports = {
     updateUserDescription,
     updateBox,
     updateUserProfilePic,
+    sendEmail,
+    generatePasswordResetToken,
+    sendResetPasswordEmail,
+    resetPassword,
+    recordPageView,
+    getPageViewCounts,
     "createBox": createBox,
     "addToBox": addToBox,
     "getBoxMedia": getBoxMedia,
